@@ -1,0 +1,8 @@
+{
+  "name": "passdown",
+  "version": "0.1.0",
+  "description": "Intake, dispatch, and handoff skills for multi-agent, multi-session work.",
+  "author": {
+    "name": "vunm"
+  }
+}
