@@ -31,6 +31,9 @@ Executors the skill knows how to drive:
 
 ## Routing rules (starting point — tune per workspace)
 
+- **Honor explicit tags first**: tasks planned with the passdown schema may
+  carry `[dispatch: external-ok]` or `[dispatch: main]` tags — follow them.
+  Untagged tasks are classified by the rules below.
 - **Mechanical, fully specified** (rename, apply a template, config change,
   boilerplate): cheapest external CLI executor.
 - **Moderate, verifiable** (small feature with tests, clear spec): subagent
