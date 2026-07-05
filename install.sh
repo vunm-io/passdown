@@ -2,10 +2,10 @@
 # Install passdown skills and schema into user-level locations so they are
 # available in every repo, for every tool that reads them.
 #
-# Skills are installed as REAL directories containing symlinked files: some
-# UIs (e.g. Claude Code's skill browser) skip symlinked directories, while
-# runtimes follow file symlinks fine — this layout satisfies both, and edits
-# in the repo still apply immediately.
+# Claude Code skills are installed as REAL copies: its desktop skill browser
+# does not list symlinked entries (the CLI runtime does, but the UI is the
+# stricter consumer). Re-run this script after editing skills to sync.
+# Kiro gets symlinked files inside real directories (no such UI constraint).
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,9 +41,20 @@ link() { # link <src> <dst>
   echo "LINK  $2 -> $1"
 }
 
-# Claude Code (user-level skills)
+copy_skill() { # copy_skill <skill-src-dir> <dst-parent>
+  local src="${1%/}" dst="$2/$(basename "$1")"
+  if [ -L "$dst" ]; then rm "$dst"; fi
+  if [ -d "$dst" ]; then
+    find "$dst" -type l -delete
+  fi
+  mkdir -p "$dst"
+  cp -f "$src"/* "$dst"/
+  echo "COPY  $dst <- $src"
+}
+
+# Claude Code (user-level skills) — real copies, see header note
 for skill in "$SKILLS_SRC"/*/; do
-  install_skill "$skill" "$HOME/.claude/skills"
+  copy_skill "$skill" "$HOME/.claude/skills"
 done
 
 # Kiro (user-level skills), only if Kiro is present
