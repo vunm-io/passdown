@@ -216,17 +216,29 @@ artifacts:
       ## 1. Setup
 
 
-      - [ ] 1.1 Create new module structure
+      - [ ] 1.1 Create new module structure [dispatch: external-ok]
+        - Paths: src/export/
+        - Done criteria: src/export/index.ts exists with an empty exportData() stub
+        - Verification: `ls src/export/index.ts`
 
-      - [ ] 1.2 Add dependencies to package.json
+      - [ ] 1.2 Add dependencies to package.json [dispatch: external-ok]
+        - Paths: package.json
+        - Done criteria: csv-stringify is listed under dependencies
+        - Verification: `npm ls csv-stringify`
 
 
       ## 2. Core Implementation
 
 
-      - [ ] 2.1 Implement data export function
+      - [ ] 2.1 Implement data export function [dispatch: main]
+        - Paths: src/export/index.ts
+        - Done criteria: exportData() returns a CSV string for a given user id
+        - Verification: `npm test -- export.test.ts`
 
-      - [ ] 2.2 Add CSV formatting utilities
+      - [ ] 2.2 Add CSV formatting utilities [dispatch: external-ok]
+        - Paths: src/export/csv.ts
+        - Done criteria: formatRow() escapes commas and quotes correctly
+        - Verification: `npm test -- csv.test.ts`
 
       ```
 
@@ -243,9 +255,12 @@ artifacts:
       - Tasks that qualify for cheap external execution (mechanical, fully specified) should be marked with a trailing `[dispatch: external-ok]` tag; judgment-heavy tasks get `[dispatch: main]`.
 
       - If the workspace uses task IDs (e.g. PKG-0005), embed the ID in the change name and use it in commit scopes.
+
+      - design.md is optional (see the design artifact's own instruction for
+      when to create it) — do not wait on it if it doesn't apply to this
+      change.
     requires:
       - specs
-      - design
 apply:
   requires:
     - tasks
