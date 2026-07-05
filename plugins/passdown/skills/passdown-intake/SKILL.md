@@ -67,6 +67,12 @@ A malformed note is still a valid note — it is raw material, not an artifact.
 
 - The inbox repo stores material and provenance; it never hosts task
   execution. Planning artifacts always live in the target repo.
+- Custom OpenSpec schemas (e.g. `openspec new change --schema passdown`) must
+  exist as a **real directory** — `openspec/schemas/<name>/` in the target
+  repo, or user-level `~/.local/share/openspec/schemas/<name>/`. Symlinked
+  schema directories fail with "Unknown schema" (openspec CLI 1.5.0). If the
+  schema is missing, copy it in from its source repo before creating the
+  change (for passdown: `install.sh --into <target-repo>`).
 - A discussion note is not an implementation request. Intake produces
   *plans*, never code changes.
 - Do not batch-guess: when a note's disposition is ambiguous, ask.

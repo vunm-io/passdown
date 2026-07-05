@@ -60,7 +60,7 @@ marketplace plugin.
 
 ```bash
 git clone git@github.com:vunm-io/passdown.git && cd passdown
-./install.sh   # copies skills for Claude Code, symlinks for Kiro, links the OpenSpec schema
+./install.sh   # copies skills for Claude Code, symlinks for Kiro, copies the OpenSpec schema
 ```
 
 Pick ONE channel per tool — installing both the plugin and the script copies
@@ -78,7 +78,7 @@ Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 plugins/passdown/skills/   # the three skills (English, workspace-agnostic)
 schemas/passdown/          # OpenSpec workflow schema customizations
 templates/AGENTS.thin.md   # thin AGENTS.md template for sub-repos
-install.sh                 # user-level symlink installer
+install.sh                 # user-level installer (--into <repo> copies the schema into a repo)
 ```
 
 ## License
