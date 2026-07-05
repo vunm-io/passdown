@@ -35,3 +35,7 @@ jobs:
           ./install.sh --into "$scratch"
           cd "$scratch"
           npx --yes @fission-ai/openspec@1.5.0 schema validate passdown
+
+      - name: Check examples/basic-workspace schema copy is in sync
+        run: |
+          diff -r schemas/passdown examples/basic-workspace/openspec/schemas/passdown

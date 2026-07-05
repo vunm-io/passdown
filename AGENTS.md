@@ -72,6 +72,11 @@ openspec schema which passdown   # should resolve to ~/.local/share/openspec/sch
 ./install.sh --into /path/to/some/repo
 ```
 
+Full checklist (plugin channel, all three skills, OpenSpec schema
+regression checks): `docs/SMOKE_TEST.md`. Its fixture is
+`examples/basic-workspace/` — keep that in sync if the skills' expected
+inbox/log/change format changes.
+
 As a Claude Code plugin instead of the script, see the README's "Install"
 section — that path goes through `claude plugin marketplace add` /
 `claude plugin install` and isn't scriptable from here; verify it manually
