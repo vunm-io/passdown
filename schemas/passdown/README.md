@@ -3,9 +3,29 @@
 Custom OpenSpec workflow schema, forked from the built-in `spec-driven` schema
 (openspec CLI **1.5.0**) via `openspec schema fork spec-driven passdown`.
 
-`install.sh` links this directory to `~/.local/share/openspec/schemas/passdown`
-so every repo can use it (`schema: passdown` in `.openspec.yaml`, or per-change
-selection). A repo can still override it with its own `openspec/schemas/`.
+## Installing the schema
+
+The openspec CLI (1.5.0) only loads schemas that are **real directories**:
+`openspec new change --schema passdown`, `openspec status`, and
+`openspec instructions apply` all fail with "Unknown schema 'passdown'" when
+the schema directory is a symlink — user-level or project-local — even though
+`openspec schema which passdown` resolves symlinks fine. So install a copy,
+one (or both) of:
+
+- **User-level** — `./install.sh` copies this directory to
+  `~/.local/share/openspec/schemas/passdown`, making `schema: passdown`
+  available in every repo on this machine. Re-run after editing the schema.
+- **Per-repo** — copy it into the target repo so the repo is self-contained
+  (collaborators and CI get the schema without installing passdown):
+
+  ```bash
+  ./install.sh --into <repo>
+  # equivalent to: cp -R schemas/passdown <repo>/openspec/schemas/passdown
+  ```
+
+A repo-local copy takes precedence over the user-level one. As of 2026-07-05,
+1.5.0 is the latest published openspec release, so no released version fixes
+the symlink limitation — re-test it when bumping the pinned CLI version.
 
 ## Customizations on top of spec-driven
 

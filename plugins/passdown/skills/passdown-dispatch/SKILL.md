@@ -51,7 +51,11 @@ When sending a task to an external executor:
    criteria, and how to record completion (e.g. tick the checkbox in
    `tasks.md`). For OpenSpec-planned work, prefer stateless instructions:
    `"Run: openspec instructions apply --change <name> --json, then complete
-   the next pending task and mark it [x]."`
+   the next pending task and mark it [x]."` If the change uses a custom
+   schema, the executor must be able to resolve it as a **real directory** —
+   repo-local `openspec/schemas/<name>/` or user-level
+   `~/.local/share/openspec/schemas/<name>/`; symlinks fail with "Unknown
+   schema" (openspec CLI 1.5.0). Verify before dispatching.
 2. Invoke with **one** command. Do not babysit output line by line.
 3. Return/relay the executor's result **verbatim** — do not paraphrase or
    summarize it back into expensive tokens.
