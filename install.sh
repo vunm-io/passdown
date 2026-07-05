@@ -20,7 +20,9 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$REPO_DIR/plugins/passdown/skills"
 
 install_skill() { # install_skill <skill-src-dir> <dst-parent>
-  local src="${1%/}" dst="$2/$(basename "$1")"
+  local src="${1%/}"
+  local dst
+  dst="$2/$(basename "$1")"
   if [ -L "$dst" ]; then rm "$dst"; fi
   if [ -e "$dst" ] && [ ! -d "$dst" ]; then
     echo "SKIP  $dst exists and is not a directory — resolve manually"
@@ -40,7 +42,9 @@ install_skill() { # install_skill <skill-src-dir> <dst-parent>
 }
 
 copy_skill() { # copy_skill <skill-src-dir> <dst-parent>
-  local src="${1%/}" dst="$2/$(basename "$1")"
+  local src="${1%/}"
+  local dst
+  dst="$2/$(basename "$1")"
   if [ -L "$dst" ]; then rm "$dst"; fi
   if [ -d "$dst" ]; then
     find "$dst" -type l -delete
