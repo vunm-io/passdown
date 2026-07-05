@@ -79,7 +79,15 @@ plugins/passdown/skills/   # the three skills (English, workspace-agnostic)
 schemas/passdown/          # OpenSpec workflow schema customizations
 templates/AGENTS.thin.md   # thin AGENTS.md template for sub-repos
 install.sh                 # user-level installer (--into <repo> copies the schema into a repo)
+examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
+docs/SMOKE_TEST.md         # manual verification checklist for install + skills
 ```
+
+See [`examples/basic-workspace/`](examples/basic-workspace/) for what an
+inbox note, a completed `passdown`-schema OpenSpec change, and a session log
+actually look like end to end. See [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md)
+before shipping any change to `install.sh`, the plugin manifests, or the
+schema.
 
 ## License
 
