@@ -56,18 +56,29 @@ Or in the desktop app: Plugins → Add marketplace → "Add from a repository".
 The plugin (and its skills) then shows up under Personal plugins, like any
 marketplace plugin.
 
+Once installed, the three skills load under the `passdown` plugin namespace.
+They trigger automatically on their descriptions, and you can invoke them
+explicitly:
+
+- `/passdown:passdown-intake`
+- `/passdown:passdown-dispatch`
+- `/passdown:passdown-handoff`
+
 **For other tools (Kiro, or any agent that reads user-level skill dirs):**
 
 ```bash
-git clone git@github.com:vunm-io/passdown.git && cd passdown
+# HTTPS (recommended for public users):
+git clone https://github.com/vunm-io/passdown.git && cd passdown
+# or SSH, if you have a key set up (handy for maintainers):
+# git clone git@github.com:vunm-io/passdown.git && cd passdown
 ./install.sh   # copies skills for Claude Code, symlinks for Kiro, copies the OpenSpec schema
 ```
 
-Pick ONE channel per tool — installing both the plugin and the script copies
-into `~/.claude/skills` loads every skill twice. Note that Claude Code's
-desktop skill browser only lists plugin-delivered and app-managed skills;
-script-installed skills still work in every session, they just don't appear
-in that panel.
+Pick ONE channel per tool — do not run both the Claude Code plugin install
+and `./install.sh`. Installing both copies every skill into `~/.claude/skills`
+a second time and double-loads them. Note that Claude Code's desktop skill
+browser only lists plugin-delivered and app-managed skills; script-installed
+skills still work in every session, they just don't appear in that panel.
 
 Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 `templates/AGENTS.thin.md` for a starting point).
@@ -88,6 +99,17 @@ inbox note, a completed `passdown`-schema OpenSpec change, and a session log
 actually look like end to end. See [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md)
 before shipping any change to `install.sh`, the plugin manifests, or the
 schema.
+
+## Distribution status
+
+- **GitHub-hosted marketplace** — supported once this repo is public. Install
+  with `claude plugin marketplace add vunm-io/passdown` (see [Install](#install)).
+- **Community marketplace** — planned, after public validation and a full
+  smoke test (`docs/SMOKE_TEST.md`). This is an opt-in listing you submit.
+- **Official (Anthropic-curated) marketplace** — curated by Anthropic; there
+  is no direct application process, so there is nothing to submit here.
+
+See [`docs/RELEASE.md`](docs/RELEASE.md) for the release + go-public checklist.
 
 ## License
 

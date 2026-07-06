@@ -29,6 +29,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate plugin + marketplace manifests (strict)
+        run: ./scripts/validate-plugin.sh
+
       - name: Validate passdown OpenSpec schema
         run: |
           scratch="$(mktemp -d)"
