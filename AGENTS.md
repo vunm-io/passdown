@@ -38,6 +38,7 @@ Three workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
    ```bash
    jq empty .claude-plugin/marketplace.json
    jq empty plugins/passdown/.claude-plugin/plugin.json
+   ./scripts/validate-plugin.sh   # claude plugin validate --strict, both manifests
    ```
 4. **Skill edits** (`plugins/passdown/skills/*`): re-run `./install.sh` to
    sync `~/.claude/skills/` before testing the skill live in a session.
@@ -58,7 +59,9 @@ git push origin v0.2.0
 
 Keep the two JSON files' versions in sync — the plugin loader reads
 `plugin.json`, the marketplace listing reads `marketplace.json`, and a
-mismatch is confusing for anyone diffing releases.
+mismatch is confusing for anyone diffing releases. Record the release in
+`CHANGELOG.md`, and follow the full pre-release + go-public gate in
+`docs/RELEASE.md`.
 
 ## Testing an install end-to-end
 

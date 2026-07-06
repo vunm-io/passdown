@@ -1,7 +1,8 @@
 {
   "name": "passdown",
   "owner": {
-    "name": "vunm"
+    "name": "vunm",
+    "url": "https://github.com/vunm-io"
   },
   "metadata": {
     "description": "Shift-handover workflow for AI agents: intake captured ideas, dispatch tasks to the cheapest capable executor, and hand work down between sessions and agents.",
@@ -10,11 +11,25 @@
   "plugins": [
     {
       "name": "passdown",
+      "displayName": "Passdown",
       "description": "Intake, dispatch, and handoff skills for multi-agent, multi-session work.",
       "version": "0.1.0",
       "author": {
-        "name": "vunm"
+        "name": "vunm",
+        "url": "https://github.com/vunm-io"
       },
+      "homepage": "https://github.com/vunm-io/passdown",
+      "repository": "https://github.com/vunm-io/passdown",
+      "license": "MIT",
+      "keywords": [
+        "handoff",
+        "ai-agents",
+        "claude-code",
+        "skills",
+        "openspec",
+        "workflow"
+      ],
+      "category": "productivity",
       "source": "./plugins/passdown"
     }
   ]

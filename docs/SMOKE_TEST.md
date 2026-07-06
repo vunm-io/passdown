@@ -4,6 +4,17 @@ Manual checklist for verifying an install actually works, end to end. Run
 this after any change to `install.sh`, `.claude-plugin/*.json`, or
 `schemas/passdown/`.
 
+## 0. Manifest validation (also runs in CI)
+
+```bash
+./scripts/validate-plugin.sh
+```
+
+- [ ] Both `claude plugin validate ... --strict` checks (marketplace + plugin)
+      print `✔ Validation passed`
+- [ ] Exit code is 0 (`--strict` fails on unrecognized fields / missing
+      metadata, so a green run means the manifests are marketplace-clean)
+
 ## 1. Script install (Claude Code + Kiro + OpenSpec)
 
 ```bash
@@ -40,9 +51,12 @@ claude plugin install passdown@passdown
 ```
 
 - [ ] Plugin shows up under Personal plugins in the desktop app / `/plugin`
-- [ ] The three skills appear in the skill list without also running
-      `./install.sh` (installing both channels double-loads skills — pick
-      one per tool, see README)
+- [ ] The three skills appear in the skill list under the `passdown` plugin
+      namespace — `passdown:passdown-intake`, `passdown:passdown-dispatch`,
+      `passdown:passdown-handoff` — and are invocable as
+      `/passdown:passdown-intake` etc.
+- [ ] They appear **without** also running `./install.sh` (installing both
+      channels double-loads skills — pick one per tool, see README)
 - [ ] Restart the app/session, then confirm each skill triggers on its
       description (see step 4)
 
