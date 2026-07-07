@@ -34,6 +34,13 @@ gh pr checks   # or watch the Actions tab
 ./scripts/validate-plugin.sh
 ```
 
+On Windows (PowerShell), use the native counterpart instead — Git Bash/WSL
+path conversion can mangle the paths passed to `claude plugin validate`:
+
+```powershell
+.\scripts\validate-plugin.ps1
+```
+
 Both marketplace + plugin manifests must print `✔ Validation passed` with
 exit 0. Optionally, sanity-check the release tag agreement:
 
@@ -43,10 +50,11 @@ claude plugin tag plugins/passdown   # validates plugin.json vs. marketplace ent
 
 ## 3. Smoke test
 
-Run `docs/SMOKE_TEST.md` end to end. The isolated sections (0, 2, 5) are the
-same checks CI runs; sections 3 and 4 (plugin channel + live skill triggering)
-can only be fully exercised once the repo is public — do those right after
-step 6.
+Run `docs/SMOKE_TEST.md` end to end. The isolated sections (0, 2, 6) are the
+same checks CI runs; section 4 (Codex/Antigravity executor config) is a doc
+sanity check you can run any time. Sections 3 and 5 (plugin channel + live
+skill triggering) can only be fully exercised once the repo is public — do
+those right after step 7 (Go public).
 
 ## 4. Secrets / privacy scan
 
@@ -57,7 +65,22 @@ git grep -nIE 'ghp_|sk-[a-zA-Z0-9]{10,}|xox[baprs]-|BEGIN [A-Z]+ PRIVATE KEY|AKI
 Expect no matches. Confirm README / examples / logs contain no tokens,
 credentials, or private workspace paths.
 
-## 5. Tag
+## 5. Doc clarity gate (host vs. executor)
+
+Before going public, re-read `README.md` end to end and confirm it cannot be
+misread as:
+
+- [ ] Codex or Antigravity being install targets rather than dispatch
+      executors (the "Support matrix" section must draw this line)
+- [ ] Kiro being anything other than a secondary, user-level skill host
+- [ ] Temporal status notes in the README (e.g. "not yet public",
+      "coming soon") — the shipped README should read as a finished public
+      project; keep any private-window caveats in this checklist, not in
+      user-facing copy
+
+If any of the above reads ambiguously, fix the wording before tagging.
+
+## 6. Tag
 
 Follow the repo convention (`vX.Y.Z`, annotated):
 
@@ -66,7 +89,7 @@ git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
 
-## 6. Go public
+## 7. Go public
 
 > Do this only when you have decided to publish. It is not reversible in the
 > same way a code change is — the code and history become world-readable.
@@ -75,7 +98,7 @@ git push origin v0.1.0
 gh repo edit vunm-io/passdown --visibility public --accept-visibility-change-consequences
 ```
 
-## 7. Verify the public install path
+## 8. Verify the public install path
 
 From a clean machine / fresh Claude Code session:
 
@@ -89,7 +112,7 @@ claude plugin install passdown@passdown
   `passdown:passdown-handoff` load under the `passdown` namespace.
 - No double-load (do not also run `./install.sh`).
 
-## 8. (Optional) Submit to the community marketplace
+## 9. (Optional) Submit to the community marketplace
 
 Once the public install is verified, submit the repo to the Claude community
 marketplace via the Console / claude.ai submission form. The official

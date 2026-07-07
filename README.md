@@ -62,6 +62,20 @@ Claude Code (and Kiro, via installed skills). From there, `passdown-dispatch`
 *drives* external executors — Codex, Antigravity, subagents — as configured.
 Codex and Antigravity are dispatch targets, not places passdown installs into.
 
+## Support matrix
+
+| Tool | Role | Status | Install / integration |
+|---|---|---|---|
+| **Claude Code** | Primary host — runs the three skills as a plugin | Supported | Plugin marketplace (`claude plugin marketplace add` / `install`) — see [Install](#install) |
+| **Kiro** | Secondary host — user-level skill dir, same skills | Supported | `git clone` + `./install.sh` (symlinks into `~/.kiro/skills`) |
+| **Codex** | Dispatch executor — receives tasks from `passdown-dispatch` | Executor target, not a host | Not installed directly; configured as an executor in the consumer repo's `AGENTS.md`, invoked via the codex plugin or `/codex:rescue` |
+| **Antigravity** | Dispatch executor — receives tasks from `passdown-dispatch` | Executor target, not a host | Not installed directly; configured as an executor in the consumer repo's `AGENTS.md`, invoked via the `agy` CLI |
+
+passdown installs *into* Claude Code and Kiro (or any tool that reads
+user-level skill dirs) — those are the hosts that run the skills. Codex and
+Antigravity never get passdown installed into them; they only receive
+dispatched work when `passdown-dispatch` decides to route a task there.
+
 passdown composes with, and does not replace:
 
 - [superpowers](https://github.com/obra/superpowers) — process discipline
@@ -93,7 +107,7 @@ explicitly:
 - `/passdown:passdown-dispatch`
 - `/passdown:passdown-handoff`
 
-**For other host tools (Kiro, or any agent that reads user-level skill dirs):**
+**Kiro / any user-level skill host:**
 
 ```bash
 # HTTPS (recommended for public users):
@@ -109,6 +123,12 @@ a second time and double-loads them. Note that Claude Code's desktop skill
 browser only lists plugin-delivered and app-managed skills; script-installed
 skills still work in every session, they just don't appear in that panel.
 
+**Codex / Antigravity:** there is no install step. Neither runs passdown
+skills directly — they only receive dispatched tasks. Configure them as
+executors in the consumer repo's `AGENTS.md` (see
+`templates/AGENTS.thin.md`); `passdown-dispatch` invokes Codex via the codex
+plugin / `/codex:rescue` and Antigravity via the `agy` CLI, if present.
+
 Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 `templates/AGENTS.thin.md` for a starting point).
 
@@ -120,6 +140,8 @@ schemas/passdown/          # OpenSpec workflow schema customizations
 templates/AGENTS.thin.md   # thin AGENTS.md template for sub-repos
 assets/                    # README hero + flow SVGs
 install.sh                 # user-level installer (--into <repo> copies the schema into a repo)
+scripts/validate-plugin.sh   # strict manifest validation (bash)
+scripts/validate-plugin.ps1  # same, for Windows PowerShell (Git Bash/WSL path issues)
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
 docs/SMOKE_TEST.md         # manual verification checklist for install + skills
 ```

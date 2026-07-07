@@ -10,6 +10,9 @@ this after any change to `install.sh`, `.claude-plugin/*.json`, or
 ./scripts/validate-plugin.sh
 ```
 
+On Windows (PowerShell): `.\scripts\validate-plugin.ps1` (avoids Git
+Bash/WSL path conversion issues with the `.sh` version).
+
 - [ ] Both `claude plugin validate ... --strict` checks (marketplace + plugin)
       print `✔ Validation passed`
 - [ ] Exit code is 0 (`--strict` fails on unrecognized fields / missing
@@ -60,7 +63,20 @@ claude plugin install passdown@passdown
 - [ ] Restart the app/session, then confirm each skill triggers on its
       description (see step 4)
 
-## 4. Exercise each skill once
+## 4. Codex / Antigravity — executor config, not an install target
+
+There is no install step for Codex or Antigravity — confirm the docs and
+your own workspace never point someone at installing passdown "into" them.
+
+- [ ] `examples/basic-workspace/AGENTS.md` (or your own workspace's) declares
+      Codex/Antigravity, if at all, under a `## passdown` executors list —
+      not as a place `install.sh` or the plugin marketplace targets
+- [ ] `passdown-dispatch` routes a task tagged `[dispatch: external-ok]` to
+      Codex via the codex plugin / `/codex:rescue`, or to Antigravity via the
+      `agy` CLI, only when that executor is configured — it never tries to
+      "install" passdown skills into either
+
+## 5. Exercise each skill once
 
 Use `examples/basic-workspace/` as the fixture — it already has a
 processed inbox note, a completed OpenSpec change under the `passdown`
@@ -78,7 +94,7 @@ schema, and a session log, so you can diff behavior instead of guessing.
       `docs/log/YYYY-MM-DD_<topic>.md` — one new file, not an append to
       `2026-07-05_passdown-demo.md`
 
-## 5. OpenSpec schema, from scratch
+## 6. OpenSpec schema, from scratch
 
 ```bash
 mkdir -p /tmp/passdown-smoke && cd /tmp/passdown-smoke
