@@ -1,8 +1,20 @@
 # passdown
 
-> Shift-handover workflow for AI agents. Like a passdown log between work
-> shifts: one session (or agent) writes down the state, the next one picks it
-> up — cheaply, from small files, with any tool.
+<p align="center">
+  <img src="assets/hero.svg" alt="passdown — shift notes for your AI agents" width="100%">
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/status-v0%20dogfooding-orange.svg" alt="Status: v0 dogfooding">
+  <img src="https://img.shields.io/badge/skills-3-2dd4bf.svg" alt="3 skills">
+  <a href="https://github.com/vunm-io/passdown/actions/workflows/ci.yml"><img src="https://github.com/vunm-io/passdown/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
+
+<p align="center"><strong>Shift notes for your AI agents.</strong></p>
+
+> Like a passdown log between work shifts: one session (or agent) writes down
+> the state, the next one picks it up — cheaply, from small files, with any tool.
 
 **Status: v0 — dogfooding.** APIs, file layouts, and skill contents will change.
 
@@ -19,7 +31,19 @@ problems:
    an agent opens a sub-repo, because project-level config follows the
    directory, not the user.
 
+## Strengths
+
+- **Workspace-agnostic** — skills install at user level and survive any `cwd` and sub-repo.
+- **Multi-executor** — dispatch routes heavy work to the cheapest capable executor available (Codex, Antigravity, a subagent, or the main session); which executors exist is declared per workspace in `AGENTS.md`.
+- **Cheap resume** — the next session reads small handoff files, not a giant transcript.
+- **Composes, not replaces** — fits alongside superpowers, OpenSpec, and codex-plugin-cc.
+- **Tool-agnostic host** — ships as a Claude Code plugin, plus an `install.sh` for Kiro and other agents that read user-level skill dirs.
+
 ## How it works
+
+<p align="center">
+  <img src="assets/flow.svg" alt="inbox → intake → dispatch → handoff" width="100%">
+</p>
 
 passdown is three **workspace-agnostic skills** installed at user level, plus
 conventions. Skills are the engine; each workspace's `AGENTS.md` is the config
@@ -30,8 +54,13 @@ also why the skills survive any `cwd` and any repo.
 | Skill | What it does |
 |---|---|
 | `passdown-intake` | Turns raw notes from an inbox (dropped there by weak capture tools like chat apps) into properly planned work in the right repo |
-| `passdown-dispatch` | Routes each task to the cheapest capable executor — external CLI agents, subagents, or the main session — and verifies results |
+| `passdown-dispatch` | Routes each task to the cheapest capable executor — external CLI agents (Codex via `/codex:rescue`, Antigravity via `agy`), subagents, or the main session — and verifies results |
 | `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, and the traps that live nowhere else |
+
+**Where it runs vs. what it drives.** passdown *runs* as the orchestrator in
+Claude Code (and Kiro, via installed skills). From there, `passdown-dispatch`
+*drives* external executors — Codex, Antigravity, subagents — as configured.
+Codex and Antigravity are dispatch targets, not places passdown installs into.
 
 passdown composes with, and does not replace:
 
@@ -64,7 +93,7 @@ explicitly:
 - `/passdown:passdown-dispatch`
 - `/passdown:passdown-handoff`
 
-**For other tools (Kiro, or any agent that reads user-level skill dirs):**
+**For other host tools (Kiro, or any agent that reads user-level skill dirs):**
 
 ```bash
 # HTTPS (recommended for public users):
@@ -89,6 +118,7 @@ Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 plugins/passdown/skills/   # the three skills (English, workspace-agnostic)
 schemas/passdown/          # OpenSpec workflow schema customizations
 templates/AGENTS.thin.md   # thin AGENTS.md template for sub-repos
+assets/                    # README hero + flow SVGs
 install.sh                 # user-level installer (--into <repo> copies the schema into a repo)
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
 docs/SMOKE_TEST.md         # manual verification checklist for install + skills
