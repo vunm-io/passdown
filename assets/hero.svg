@@ -2,8 +2,11 @@
 <title>passdown — shift notes for your AI agents</title>
 <desc>Dark dev-tool banner: the passdown wordmark and tagline, with two lines separating where it runs (Claude Code, Kiro) from what it dispatches to (Codex, Antigravity, subagents), and a shift-handover motif: session ends, handoff log, resumes.</desc>
 <defs>
-<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-<path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<marker id="arrow-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+<marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#58a6ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </marker>
 </defs>
 <rect x="1" y="1" width="678" height="212" rx="14" fill="#0d1117" stroke="#22303f" stroke-width="1"/>
@@ -20,14 +23,14 @@
 <rect x="464" y="104" width="34" height="5" rx="2.5" fill="#30363d"/>
 <rect x="464" y="116" width="46" height="5" rx="2.5" fill="#30363d"/>
 <rect x="464" y="128" width="28" height="5" rx="2.5" fill="#30363d"/>
-<line x1="530" y1="109" x2="548" y2="109" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="530" y1="109" x2="548" y2="109" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
 <rect x="551" y="82" width="48" height="54" rx="7" fill="#0f2b2a" stroke="#2dd4bf" stroke-width="1.2"/>
 <path d="M587 82 h8 a4 4 0 0 1 4 4 v8 z" fill="#134e4a"/>
 <rect x="559" y="96" width="28" height="4" rx="2" fill="#2dd4bf"/>
 <rect x="559" y="105" width="32" height="4" rx="2" fill="#5eead4"/>
 <rect x="559" y="114" width="22" height="4" rx="2" fill="#2dd4bf"/>
 <rect x="559" y="123" width="30" height="4" rx="2" fill="#5eead4"/>
-<line x1="602" y1="109" x2="620" y2="109" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="602" y1="109" x2="620" y2="109" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrow-blue)"/>
 <rect x="623" y="66" width="34" height="86" rx="8" fill="#0d2036" stroke="#58a6ff" stroke-width="1.2"/>
 <circle cx="640" cy="86" r="5" fill="#58a6ff"/>
 <rect x="630" y="100" width="20" height="4" rx="2" fill="#1f6feb"/>
