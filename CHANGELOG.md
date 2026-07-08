@@ -6,6 +6,27 @@ aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `docs/EXECUTOR_SETUP.md` — pre-flight checklist (non-interactive run,
+  sandbox scope, recording outcomes) before adding a dispatch executor.
+
+### Changed
+
+- `passdown-dispatch` hardened from first field use:
+  - `executor notes` in the workspace AGENTS.md now act as a routing veto
+    for environment constraints (sandbox write scope, network access,
+    non-interactive permission gates).
+  - Dispatch prompts must include a stop-on-sandbox-failure clause so
+    executors report environment errors verbatim instead of improvising
+    workarounds.
+  - Failed dispatches require a working-tree diff and cleanup of partial
+    output before the next attempt.
+  - Stalled background jobs (no progress signal for ~10 minutes) and
+    hangs-to-timeout count as failures — cancel, clean up, escalate.
+  - Routing outcomes are recorded including failures with root cause, not
+    just successes.
+
 ## [0.1.0] - 2026-07-06
 
 First public beta. Distributed as a GitHub-hosted Claude Code plugin
