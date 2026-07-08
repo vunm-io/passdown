@@ -29,6 +29,15 @@ Executors the skill knows how to drive:
 | `claude-subagent` | Agent tool, fresh context | Saves main-session context, not total tokens |
 | `main` | current session | Reserve for judgment-heavy work |
 
+Also read any `executor notes` lines in the same `## passdown` section. They
+record environment constraints and past failures (sandbox write scope,
+network access, non-interactive permission gates) and **veto** the default
+routing: a task that must write outside the repo, reach the network, or run
+a toolchain wrapper that writes to its own install dir (e.g. `flutter`) is
+incompatible with a sandboxed executor unless its sandbox was configured for
+it beforehand. Executors cannot be reconfigured mid-dispatch — that is user
+setup work, done before the executor earns its place in the list.
+
 ## Routing rules (starting point — tune per workspace)
 
 - **Honor explicit tags first**: tasks planned with the passdown schema may
@@ -41,7 +50,9 @@ Executors the skill knows how to drive:
 - **Judgment-heavy** (architecture, ambiguous requirements, security):
   main session, or a fresh dedicated session.
 - When unsure, try the cheaper executor once; escalate on failure. Record
-  what worked in the workspace AGENTS.md so the table improves over time.
+  what worked **and what failed, with the root cause** in the workspace
+  AGENTS.md `executor notes` — negative results are the expensive ones to
+  rediscover.
 
 ## Dispatch contract (thin forwarder)
 
@@ -56,12 +67,21 @@ When sending a task to an external executor:
    repo-local `openspec/schemas/<name>/` or user-level
    `~/.local/share/openspec/schemas/<name>/`; symlinks fail with "Unknown
    schema" (openspec CLI 1.5.0). Verify before dispatching.
-2. Invoke with **one** command. Do not babysit output line by line.
-3. Return/relay the executor's result **verbatim** — do not paraphrase or
+2. Always include this environment clause in the prompt: *"If a command fails
+   because of sandbox, permission, or network restrictions, STOP and report
+   the error verbatim. Do not work around it (no HOME redirects, no local
+   caches, no config or project-file edits)."* Environment failures are the
+   orchestrator's to fix, not the executor's — an executor improvising around
+   its sandbox burns time and leaves junk and unreviewable state behind.
+3. Invoke with **one** command. Do not babysit output line by line.
+4. Return/relay the executor's result **verbatim** — do not paraphrase or
    summarize it back into expensive tokens.
-4. **Verify before trusting**: run the task's done criteria yourself (tests,
-   `openspec status`, file checks). An unverified task stays unchecked.
-5. Flags vocabulary (align with the codex plugin): `--background` / `--wait`
+5. **Verify before trusting**: run the task's done criteria yourself (tests,
+   `openspec status`, file checks). An unverified task stays unchecked. After
+   a failed dispatch, diff the working tree and clean partial output (stray
+   files, caches, half-applied edits) before the next attempt — never retry
+   on a dirty tree.
+6. Flags vocabulary (align with the codex plugin): `--background` / `--wait`
    for execution mode, `--resume` / `--fresh` for thread continuity.
 
 ## Rules
@@ -71,3 +91,8 @@ When sending a task to an external executor:
   context.
 - If an executor fails twice on the same task, escalate to the next tier —
   do not retry a third time.
+- Give each dispatch a wall-clock budget. If a background job shows no fresh
+  progress signal (new log lines, an advancing `updatedAt`) for ~10 minutes,
+  check process liveness; a stale "running" status is a failure — cancel,
+  clean up leftovers, escalate. A hang-to-timeout in a non-interactive
+  executor (e.g. an unanswerable permission prompt) counts as a failure too.

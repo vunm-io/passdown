@@ -144,6 +144,7 @@ scripts/validate-plugin.sh   # strict manifest validation (bash)
 scripts/validate-plugin.ps1  # same, for Windows PowerShell (Git Bash/WSL path issues)
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
 docs/SMOKE_TEST.md         # manual verification checklist for install + skills
+docs/EXECUTOR_SETUP.md     # pre-flight checklist before adding a dispatch executor
 ```
 
 See [`examples/basic-workspace/`](examples/basic-workspace/) for what an
