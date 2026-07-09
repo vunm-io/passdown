@@ -58,8 +58,15 @@ jobs:
           codex_home="$(mktemp -d)"
           CODEX_HOME="$codex_home" codex plugin marketplace add "$GITHUB_WORKSPACE"
           CODEX_HOME="$codex_home" codex plugin add passdown@passdown
+          version="$(cat VERSION)"
           CODEX_HOME="$codex_home" codex plugin list |
-            grep -E 'passdown@passdown[[:space:]]+installed, enabled[[:space:]]+0\.2\.0'
+            awk -v version="$version" '
+              $1 == "passdown@passdown" &&
+              $2 == "installed," &&
+              $3 == "enabled" &&
+              $4 == version { found = 1 }
+              END { exit !found }
+            '
 
       - name: Validate passdown OpenSpec schema
         run: |

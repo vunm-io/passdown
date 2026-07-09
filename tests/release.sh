@@ -43,12 +43,11 @@ require_text "$ci_workflow" "codex plugin add" \
 require_text "$release_workflow" "gh release create" \
   "release workflow publishes a GitHub Release"
 
-notes="$("$notes_script" 0.2.0)"
+version="$(tr -d '[:space:]' <"$repo_root/VERSION")"
+notes="$("$notes_script" "$version")"
 printf '%s\n' "$notes" | rg -q '^### Added|^### Changed|^### Fixed' ||
-  fail "v0.2.0 release notes contain no change categories"
-printf '%s\n' "$notes" | rg -q 'Codex' ||
-  fail "v0.2.0 release notes omit Codex support"
-pass "release notes are extracted from the v0.2.0 changelog section"
+  fail "current release notes contain no change categories"
+pass "release notes are extracted from the current VERSION changelog section"
 
 if "$notes_script" 9.9.9 >/dev/null 2>&1; then
   fail "missing changelog version was accepted"

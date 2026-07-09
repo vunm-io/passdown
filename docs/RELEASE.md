@@ -3,6 +3,9 @@
 Recurring process for publishing passdown. Releases move forward from
 protected `main`; v0 does not maintain old minor release branches.
 
+Repository merge methods and the `main` ruleset must match
+[`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md).
+
 ## Historical follow-up
 
 The annotated `v0.1.0` tag exists, but its GitHub prerelease is still pending.
