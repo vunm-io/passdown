@@ -34,10 +34,14 @@ problems:
 ## Strengths
 
 - **Workspace-agnostic** — skills install at user level and survive any `cwd` and sub-repo.
-- **Multi-executor** — dispatch routes heavy work to the cheapest capable executor available (Codex, Antigravity, a subagent, or the main session); which executors exist is declared per workspace in `AGENTS.md`.
+- **Multi-host** — the same skill core runs in Claude Code, Codex, and Kiro.
+- **Multi-executor** — dispatch routes work to the cheapest compatible
+  external CLI, native subagent, or main session declared in `AGENTS.md`.
 - **Cheap resume** — the next session reads small handoff files, not a giant transcript.
-- **Composes, not replaces** — fits alongside superpowers, OpenSpec, and codex-plugin-cc.
-- **Tool-agnostic host** — ships as a Claude Code plugin, plus an `install.sh` for Kiro and other agents that read user-level skill dirs.
+- **Composes, not replaces** — fits alongside superpowers, OpenSpec, and
+  host-specific executor adapters.
+- **Native distribution** — ships as both Claude Code and Codex plugins, plus
+  a direct installer for supported user-level skill directories.
 
 ## How it works
 
@@ -54,27 +58,24 @@ also why the skills survive any `cwd` and any repo.
 | Skill | What it does |
 |---|---|
 | `passdown-intake` | Turns raw notes from an inbox (dropped there by weak capture tools like chat apps) into properly planned work in the right repo |
-| `passdown-dispatch` | Routes each task to the cheapest capable executor — external CLI agents (Codex via `/codex:rescue`, Antigravity via `agy`), subagents, or the main session — and verifies results |
+| `passdown-dispatch` | Routes each task to the cheapest compatible external CLI, native subagent, or main session, then verifies the result |
 | `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, and the traps that live nowhere else |
 
-**Where it runs vs. what it drives.** passdown *runs* as the orchestrator in
-Claude Code (and Kiro, via installed skills). From there, `passdown-dispatch`
-*drives* external executors — Codex, Antigravity, subagents — as configured.
-Codex and Antigravity are dispatch targets, not places passdown installs into.
+**Host vs. executor.** passdown can run as the orchestrator in Claude Code,
+Codex, or Kiro. An executor is a separate target selected by
+`passdown-dispatch`. Codex may be an external executor when passdown runs on a
+different host; when Codex is already the host, `codex` is a self-target and is
+skipped in favor of the current session or an explicitly authorized native
+subagent.
 
 ## Support matrix
 
 | Tool | Role | Status | Install / integration |
 |---|---|---|---|
 | **Claude Code** | Primary host — runs the three skills as a plugin | Supported | Plugin marketplace (`claude plugin marketplace add` / `install`) — see [Install](#install) |
-| **Kiro** | Secondary host — user-level skill dir, same skills | Supported | `git clone` + `./install.sh` (symlinks into `~/.kiro/skills`) |
-| **Codex** | Dispatch executor — receives tasks from `passdown-dispatch` | Executor target, not a host | Not installed directly; configured as an executor in the consumer repo's `AGENTS.md`, invoked via the codex plugin or `/codex:rescue` |
+| **Codex** | Host — runs the same three skills as a native plugin; may also be an external executor from another host | Supported | Codex marketplace (`codex plugin marketplace add` / `add`) or `./install.sh --host codex` |
+| **Kiro** | Secondary host — user-level skill dir, same skills | Supported | `git clone` + `./install.sh --host kiro` |
 | **Antigravity** | Dispatch executor — receives tasks from `passdown-dispatch` | Executor target, not a host | Not installed directly; configured as an executor in the consumer repo's `AGENTS.md`, invoked via the `agy` CLI |
-
-passdown installs *into* Claude Code and Kiro (or any tool that reads
-user-level skill dirs) — those are the hosts that run the skills. Codex and
-Antigravity never get passdown installed into them; they only receive
-dispatched work when `passdown-dispatch` decides to route a task there.
 
 passdown composes with, and does not replace:
 
@@ -83,8 +84,8 @@ passdown composes with, and does not replace:
 - [OpenSpec](https://github.com/Fission-AI/openspec) — planning artifacts
   (living specs, change deltas, task lists whose state lives in files, not in
   sessions)
-- [codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — the Codex
-  executor backend, when available
+- [codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — an optional
+  Claude Code → Codex executor adapter
 
 ## Install
 
@@ -107,27 +108,41 @@ explicitly:
 - `/passdown:passdown-dispatch`
 - `/passdown:passdown-handoff`
 
-**Kiro / any user-level skill host:**
+**As a Codex plugin (recommended):**
+
+```bash
+codex plugin marketplace add vunm-io/passdown
+codex plugin add passdown@passdown
+```
+
+Restart Codex or open a new thread after installation. The skills appear under
+the `passdown` plugin namespace and can trigger from their descriptions or be
+selected explicitly from the skill/plugin picker.
+
+**Direct user-level install:**
 
 ```bash
 # HTTPS (recommended for public users):
 git clone https://github.com/vunm-io/passdown.git && cd passdown
 # or SSH, if you have a key set up (handy for maintainers):
 # git clone git@github.com:vunm-io/passdown.git && cd passdown
-./install.sh   # copies skills for Claude Code, symlinks for Kiro, copies the OpenSpec schema
+./install.sh --host claude
+./install.sh --host codex
+./install.sh --host kiro
 ```
 
-Pick ONE channel per tool — do not run both the Claude Code plugin install
-and `./install.sh`. Installing both copies every skill into `~/.claude/skills`
-a second time and double-loads them. Note that Claude Code's desktop skill
-browser only lists plugin-delivered and app-managed skills; script-installed
-skills still work in every session, they just don't appear in that panel.
+Pick **one channel per host**: plugin or direct install, never both. Duplicate
+channels expose namespaced and unnamespaced copies of the same skill and can
+leave different versions active. Remove the direct `passdown-*` directories
+from that host's user skill directory before switching to its plugin channel.
 
-**Codex / Antigravity:** there is no install step. Neither runs passdown
-skills directly — they only receive dispatched tasks. Configure them as
-executors in the consumer repo's `AGENTS.md` (see
-`templates/AGENTS.thin.md`); `passdown-dispatch` invokes Codex via the codex
-plugin / `/codex:rescue` and Antigravity via the `agy` CLI, if present.
+Running `./install.sh` without `--host` preserves the legacy behavior: Claude
+Code, Kiro when `~/.kiro` already exists, and the user-level OpenSpec schema.
+For new installations, prefer an explicit host.
+
+Antigravity remains executor-only. Configure it, or an external Codex adapter
+used from another host, under `executors` in the consumer workspace's
+`AGENTS.md`.
 
 Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 `templates/AGENTS.thin.md` for a starting point).
@@ -136,10 +151,13 @@ Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 
 ```
 plugins/passdown/skills/   # the three skills (English, workspace-agnostic)
+plugins/passdown/.codex-plugin/ # native Codex plugin manifest
+.agents/plugins/marketplace.json # native Codex marketplace
 schemas/passdown/          # OpenSpec workflow schema customizations
 templates/AGENTS.thin.md   # thin AGENTS.md template for sub-repos
 assets/                    # README hero + flow SVGs
-install.sh                 # user-level installer (--into <repo> copies the schema into a repo)
+install.sh                 # host-selectable user installer + repo-local schema copy
+scripts/check-version.sh   # VERSION/manifest/tag agreement
 scripts/validate-plugin.sh   # strict manifest validation (bash)
 scripts/validate-plugin.ps1  # same, for Windows PowerShell (Git Bash/WSL path issues)
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
@@ -155,14 +173,11 @@ schema.
 
 ## Distribution status
 
-- **GitHub-hosted marketplace** — supported once this repo is public. Install
-  with `claude plugin marketplace add vunm-io/passdown` (see [Install](#install)).
-- **Community marketplace** — planned, after public validation and a full
-  smoke test (`docs/SMOKE_TEST.md`). This is an opt-in listing you submit.
-- **Official (Anthropic-curated) marketplace** — curated by Anthropic; there
-  is no direct application process, so there is nothing to submit here.
+- **GitHub-hosted Claude Code marketplace** — supported.
+- **GitHub-hosted Codex marketplace** — supported.
+- **Community directories** — optional after public smoke testing.
 
-See [`docs/RELEASE.md`](docs/RELEASE.md) for the release + go-public checklist.
+See [`docs/RELEASE.md`](docs/RELEASE.md) for the recurring release checklist.
 
 ## License
 

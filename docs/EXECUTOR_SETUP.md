@@ -10,6 +10,10 @@ An executor that fails these checks doesn't have to be removed — but its
 limits must be recorded as `executor notes` in the workspace AGENTS.md so
 routing can veto incompatible tasks.
 
+First identify the host. An executor name is a target, not the current host:
+when passdown already runs in Codex, `codex` is a self-target and must be
+skipped. Use `main` or an explicitly authorized native `subagent` instead.
+
 ## 1. Non-interactive run completes
 
 Non-interactive modes (`--print`, `exec`, app-server) have nobody to answer
@@ -38,6 +42,9 @@ off improvising workarounds.
 - [ ] If the work needs package fetches or dependency resolution: enable
       sandbox network access, and note the prompt-injection/exfiltration
       trade-off that comes with it
+- [ ] For cross-repo intake/dispatch, verify every inbox and target repo is
+      inside writable workspace roots. If not, open the parent workspace or
+      grant the exact additional root before dispatching
 
 ## 3. Record the outcome
 
@@ -46,3 +53,5 @@ off improvising workarounds.
 - [ ] Tasks that the executor cannot run (network, out-of-repo writes,
       GUI/toolchain builds) are routed elsewhere — the notes are the veto
       list the dispatch skill reads before routing
+- [ ] Never record a workaround that redirects HOME, creates substitute
+      caches, or edits project configuration to evade the sandbox
