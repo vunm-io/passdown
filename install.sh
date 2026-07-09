@@ -2,13 +2,15 @@
 # Install passdown skills and schema into user-level locations so they are
 # available in every repo, for every tool that reads them.
 #
-#   ./install.sh                 # user-level install (skills + OpenSpec schema)
-#   ./install.sh --into <repo>   # copy the schema into <repo>/openspec/schemas/
+#   ./install.sh                         # Claude Code (+ Kiro if present) + schema
+#   ./install.sh --host codex            # selected host + schema
+#   ./install.sh --host claude --host kiro
+#   ./install.sh --into <repo>           # repo-local schema only
 #
 # Claude Code skills are installed as REAL copies: its desktop skill browser
 # does not list symlinked entries (the CLI runtime does, but the UI is the
 # stricter consumer). Re-run this script after editing skills to sync.
-# Kiro gets symlinked files inside real directories (no such UI constraint).
+# Codex and Kiro receive the same real copies when selected explicitly.
 #
 # The OpenSpec schema is also installed as a REAL copy: the openspec CLI
 # (1.5.0) ignores symlinked schema directories in `new change`, `status`, and
@@ -19,76 +21,108 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$REPO_DIR/plugins/passdown/skills"
 
-install_skill() { # install_skill <skill-src-dir> <dst-parent>
-  local src="${1%/}"
-  local dst
-  dst="$2/$(basename "$1")"
-  if [ -L "$dst" ]; then rm "$dst"; fi
-  if [ -e "$dst" ] && [ ! -d "$dst" ]; then
-    echo "SKIP  $dst exists and is not a directory — resolve manually"
-    return
-  fi
-  mkdir -p "$dst"
-  local f name
-  for f in "$src"/*; do
-    name="$(basename "$f")"
-    if [ -e "$dst/$name" ] && [ ! -L "$dst/$name" ]; then
-      echo "SKIP  $dst/$name exists and is not a symlink — resolve manually"
-      continue
-    fi
-    ln -sfn "$f" "$dst/$name"
-  done
-  echo "SKILL $dst -> $src"
+usage() {
+  cat <<'EOF'
+Usage:
+  ./install.sh
+  ./install.sh --host <claude|codex|kiro> [--host <host> ...]
+  ./install.sh --into <existing-repo-dir>
+  ./install.sh --help
+
+Without --host, installs Claude Code skills, Kiro skills when ~/.kiro exists,
+and the user-level OpenSpec schema. Use one install channel per host: plugin or
+script, never both.
+EOF
 }
 
 copy_skill() { # copy_skill <skill-src-dir> <dst-parent>
   local src="${1%/}"
-  local dst
+  local dst dst_parent tmp
+  dst_parent="${2%/}"
   dst="$2/$(basename "$1")"
-  if [ -L "$dst" ]; then rm "$dst"; fi
-  if [ -d "$dst" ]; then
-    find "$dst" -type l -delete
+  if [ -e "$dst" ] && [ ! -d "$dst" ] && [ ! -L "$dst" ]; then
+    echo "ERROR: $dst exists and is not a directory — resolve manually" >&2
+    return 1
   fi
-  mkdir -p "$dst"
-  cp -f "$src"/* "$dst"/
+  mkdir -p "$dst_parent"
+  tmp="$(mktemp -d "$dst_parent/.passdown-$(basename "$src").XXXXXX")"
+  cp -R "$src/." "$tmp/"
+  rm -rf "$dst"
+  mv "$tmp" "$dst"
   echo "COPY  $dst <- $src"
 }
 
 copy_schema() { # copy_schema <dst-dir>
-  local src="$REPO_DIR/schemas/passdown" dst="${1%/}"
-  if [ -L "$dst" ]; then rm "$dst"; fi
-  if [ -e "$dst" ] && [ ! -d "$dst" ]; then
-    echo "SKIP  $dst exists and is not a directory — resolve manually"
+  local src="$REPO_DIR/schemas/passdown" dst="${1%/}" parent tmp
+  if [ -e "$dst" ] && [ ! -d "$dst" ] && [ ! -L "$dst" ]; then
+    echo "ERROR: $dst exists and is not a directory — resolve manually" >&2
     return 1
   fi
+  parent="$(dirname "$dst")"
+  mkdir -p "$parent"
+  tmp="$(mktemp -d "$parent/.passdown-schema.XXXXXX")"
+  cp -R "$src/." "$tmp/"
   rm -rf "$dst"
-  mkdir -p "$(dirname "$dst")"
-  cp -R "$src" "$dst"
+  mv "$tmp" "$dst"
   echo "COPY  $dst <- $src"
 }
 
-# --into <repo>: copy the schema into a target repo and exit. Use this to make
-# a repo self-contained (collaborators/CI get the schema without passdown).
-if [ "${1:-}" = "--into" ]; then
-  if [ -z "${2:-}" ] || [ ! -d "$2" ]; then
-    echo "Usage: ./install.sh --into <existing-repo-dir>" >&2
-    exit 1
-  fi
-  copy_schema "${2%/}/openspec/schemas/passdown"
-  exit 0
-fi
+hosts=()
 
-# Claude Code (user-level skills) — real copies, see header note
-for skill in "$SKILLS_SRC"/*/; do
-  copy_skill "$skill" "$HOME/.claude/skills"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --into)
+      if [ "$#" -ne 2 ] || [ ! -d "$2" ]; then
+        usage >&2
+        exit 1
+      fi
+      copy_schema "${2%/}/openspec/schemas/passdown"
+      exit 0
+      ;;
+    --host)
+      if [ "$#" -lt 2 ]; then
+        usage >&2
+        exit 1
+      fi
+      case "$2" in
+        claude|codex|kiro) hosts+=("$2") ;;
+        *)
+          echo "ERROR: unknown host '$2'" >&2
+          usage >&2
+          exit 1
+          ;;
+      esac
+      shift 2
+      ;;
+    *)
+      echo "ERROR: unknown argument '$1'" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
 done
 
-# Kiro (user-level skills), only if Kiro is present
-if [ -d "$HOME/.kiro" ]; then
-  for skill in "$SKILLS_SRC"/*/; do
-    install_skill "$skill" "$HOME/.kiro/skills"
-  done
+if [ "${#hosts[@]}" -eq 0 ]; then
+  hosts=(claude)
+  if [ -d "$HOME/.kiro" ]; then
+    hosts+=(kiro)
+  fi
 fi
+
+for host in "${hosts[@]}"; do
+  case "$host" in
+    claude) skills_dst="$HOME/.claude/skills" ;;
+    codex) skills_dst="$HOME/.agents/skills" ;;
+    kiro) skills_dst="$HOME/.kiro/skills" ;;
+  esac
+  for skill in "$SKILLS_SRC"/*/; do
+    copy_skill "$skill" "$skills_dst"
+  done
+done
 
 # OpenSpec user-level schema — real copy, see header note
 if [ -f "$REPO_DIR/schemas/passdown/schema.yaml" ]; then
