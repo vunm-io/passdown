@@ -2,57 +2,56 @@
 
 All notable changes to passdown are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
-aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-09
+
 ### Added
 
-- `docs/EXECUTOR_SETUP.md` — pre-flight checklist (non-interactive run,
-  sandbox scope, recording outcomes) before adding a dispatch executor.
+- First-class Codex host support with a native `.codex-plugin` manifest and
+  repo marketplace.
+- Installer, skill-contract, version, and release-workflow regression suites.
+- A single `VERSION` source of truth with manifest/tag agreement checks.
+- Tag-gated GitHub Release automation.
+- Executor environment preflight and setup guidance.
 
 ### Changed
 
-- `passdown-dispatch` hardened from first field use:
-  - `executor notes` in the workspace AGENTS.md now act as a routing veto
-    for environment constraints (sandbox write scope, network access,
-    non-interactive permission gates).
-  - Dispatch prompts must include a stop-on-sandbox-failure clause so
-    executors report environment errors verbatim instead of improvising
-    workarounds.
-  - Failed dispatches require a working-tree diff and cleanup of partial
-    output before the next attempt.
-  - Stalled background jobs (no progress signal for ~10 minutes) and
-    hangs-to-timeout count as failures — cancel, clean up, escalate.
-  - Routing outcomes are recorded including failures with root cause, not
-    just successes.
+- Made intake, dispatch, and handoff configuration inherit root-to-nearest
+  `AGENTS.md` values with nearest-key precedence.
+- Made dispatch host-aware: Codex is an external executor only from another
+  host, while native subagents use the portable `subagent` name.
+- Made executor results concise structured summaries, preserving verbatim
+  environment errors rather than relaying all output.
+- Made direct installs explicit per host and recursive for skill resources.
+- Adopted short-lived branches, protected `main`, and PR-only integration.
+- Expanded the public documentation, examples, smoke tests, and release gates.
 
-## [0.1.0] - 2026-07-06
+### Fixed
 
-First public beta. Distributed as a GitHub-hosted Claude Code plugin
-marketplace (`vunm-io/passdown`).
+- Preserve pre-existing working-tree changes when an executor fails; cleanup is
+  limited to changes attributable to that dispatch.
+- Stop cross-repo intake when permissions are insufficient instead of
+  attempting sandbox workarounds.
+- Remove stale files during direct skill synchronization.
+- Reject unknown installer arguments and make `--help` side-effect free.
+- Avoid handoff log collisions with agent/time filename suffixes.
+- Keep optional OpenSpec design artifacts from blocking task generation.
+
+## [0.1.0] - 2026-07-05
+
+Initial dogfooding snapshot.
 
 ### Added
 
-- Three workspace-agnostic Claude Code / Kiro skills:
-  - `passdown-intake` — turn raw inbox notes into planned work in the right repo.
-  - `passdown-dispatch` — route each task to the cheapest capable executor and
-    verify results.
-  - `passdown-handoff` — end a session with a small handoff log.
-- OpenSpec workflow schema (`schemas/passdown/`) that makes tasks
-  self-contained and dispatchable, with proposal/design/spec/task templates.
-- `install.sh` user-level installer (skills + OpenSpec schema) with an
-  `--into <repo>` mode to vendor the schema into a target repo.
-- Claude Code plugin marketplace manifest (`.claude-plugin/marketplace.json`)
-  and plugin manifest (`plugins/passdown/.claude-plugin/plugin.json`), with
-  public-facing metadata (displayName, homepage, repository, license,
-  keywords, category).
-- `scripts/validate-plugin.sh` and a CI step running
-  `claude plugin validate --strict` on both manifests.
-- `examples/basic-workspace/` worked example (inbox note, completed OpenSpec
-  change, session log) and `docs/SMOKE_TEST.md` manual verification checklist.
-- CI (`.github/workflows/ci.yml`): JSON validation, shellcheck, strict plugin
-  validation, OpenSpec schema validation, and a schema-sync check.
+- Three workspace-agnostic skills: intake, dispatch, and handoff.
+- Claude Code plugin and marketplace manifests.
+- User-level skill installer and thin consumer `AGENTS.md` template.
+- OpenSpec `passdown` schema with self-contained task metadata and dispatch
+  tags.
 
-[Unreleased]: https://github.com/vunm-io/passdown/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vunm-io/passdown/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vunm-io/passdown/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vunm-io/passdown/releases/tag/v0.1.0

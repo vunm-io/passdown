@@ -23,6 +23,10 @@ welcome, but keep changes focused and validated before opening a PR.
 
 - One PR = one logical change. No merge commits — rebase, don't merge `main`
   into your branch.
+- Never push directly to `main`. Work on a short-lived `feat/<topic>`,
+  `fix/<topic>`, or tool-prefixed branch and open a PR.
+- Release preparation uses a temporary `release/vX.Y.Z` branch. The project
+  does not keep `develop` or long-lived `0.2.x` maintenance branches.
 - Don't add features or abstractions beyond what's asked — see the project's
   own bias toward small, workspace-agnostic skills over configuration
   sprawl.

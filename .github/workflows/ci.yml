@@ -1,39 +1,65 @@
 name: ci
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Validate JSON files
         run: |
-          for f in $(find . -name "*.json" -not -path "*/node_modules/*"); do
+          while IFS= read -r -d '' f; do
             echo "checking $f"
             jq empty "$f"
-          done
+          done < <(find . -name "*.json" -not -path "*/node_modules/*" -print0)
 
-      - name: Shellcheck install.sh
-        uses: ludeeus/action-shellcheck@2.0.0
-        with:
-          scandir: '.'
-          ignore_paths: node_modules
+      - name: Validate shell scripts
+        run: |
+          bash -n install.sh scripts/*.sh tests/*.sh
+          shellcheck install.sh scripts/*.sh tests/*.sh
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install plugin CLIs
+        run: |
+          npm install -g \
+            @anthropic-ai/claude-code@2.1.193 \
+            @openai/codex@0.142.5
 
       - name: Validate plugin + marketplace manifests (strict)
         run: ./scripts/validate-plugin.sh
+
+      - name: Run installer regressions
+        run: ./tests/install.sh
+
+      - name: Run skill contract tests
+        run: ./tests/skills.sh
+
+      - name: Check version agreement
+        run: ./tests/version.sh
+
+      - name: Check release workflow contracts
+        run: ./tests/release.sh
+
+      - name: Smoke-test Codex marketplace install
+        run: |
+          codex_home="$(mktemp -d)"
+          CODEX_HOME="$codex_home" codex plugin marketplace add "$GITHUB_WORKSPACE"
+          CODEX_HOME="$codex_home" codex plugin add passdown@passdown
+          CODEX_HOME="$codex_home" codex plugin list |
+            grep -E 'passdown@passdown[[:space:]]+installed, enabled[[:space:]]+0\.2\.0'
 
       - name: Validate passdown OpenSpec schema
         run: |
