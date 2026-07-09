@@ -21,10 +21,10 @@ Bash/WSL path conversion issues with the `.sh` version).
 ## 1. Direct script install (host-selected + OpenSpec)
 
 ```bash
-home="$(mktemp -d)"
-HOME="$home" ./install.sh --host claude
-HOME="$home" ./install.sh --host codex
-HOME="$home" ./install.sh --host kiro
+export HOME="$(mktemp -d)"
+./install.sh --host claude
+./install.sh --host codex
+./install.sh --host kiro
 ```
 
 - [ ] Each selected host contains all three real skill directories under
