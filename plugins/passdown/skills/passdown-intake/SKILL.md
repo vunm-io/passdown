@@ -11,8 +11,19 @@ is where a capable agent applies judgment.
 
 ## Configuration (read first)
 
-Find the nearest `AGENTS.md` walking up from the current directory. Look for a
-`## passdown` section:
+Build the effective passdown configuration root-to-nearest:
+
+1. Start with every applicable `AGENTS.md` from the workspace/repository root
+   down to the current directory.
+2. If a thin `AGENTS.md` explicitly points to a parent file outside the Git
+   root, read that parent too.
+3. Merge `## passdown` keys from root to nearest; a nearer value overrides only
+   the same key and inherits all omitted keys.
+4. Resolve relative config paths against the directory containing the
+   `AGENTS.md` that declared that value, not against an arbitrary current
+   directory.
+
+The effective configuration should contain:
 
 ```markdown
 ## passdown
@@ -21,8 +32,8 @@ Find the nearest `AGENTS.md` walking up from the current directory. Look for a
 - targets: <repo1>, <repo2>, ...   # known target repos for routing
 ```
 
-If no configuration exists, ask the user where the inbox lives and suggest
-adding the section to AGENTS.md.
+If a required key is still missing, ask the user for that value and suggest
+adding it to the appropriate `AGENTS.md`.
 
 ## Inbox note contract
 
@@ -48,13 +59,23 @@ A malformed note is still a valid note — it is raw material, not an artifact.
    - Read it fully. Cross-check existing knowledge/specs in the workspace if
      relevant.
    - If intent is unclear, ask the user — one question at a time.
+   - Before writing, resolve the inbox, target repo, planning directory, and
+     schema paths. Verify that the current host has read access to inputs and
+     write access to every intended output. Cross-repo work often needs the
+     parent workspace opened as a workspace root or an explicit permission
+     grant.
+   - If sandbox, permission, or network policy blocks a required path, stop and
+     report the blocked path and operation. Do not redirect `HOME`, create
+     substitute caches, or edit project/tool configuration as a workaround.
    - Decide the disposition:
      - **Actionable work** → determine the target repo (use `target:` hint,
        the routing rules in AGENTS.md, or ask). Create the planning artifact
-       in the target repo using the workspace's planning convention (for
-       `planning: openspec`, run `/opsx:propose` or `openspec new change` in
-       that repo). The artifact must be self-contained: an executor must be
-       able to work from it without reading this conversation.
+       in the target repo using the workspace's planning convention. For
+       `planning: openspec`, use the portable `openspec new change` CLI path;
+       a host-specific command such as `/opsx:propose` may be used only when
+       that host actually provides it. The artifact must be self-contained:
+       an executor must be able to work from it without reading this
+       conversation.
      - **Knowledge, not work** → refile into the workspace's knowledge
        location per its conventions.
      - **Obsolete/noise** → mark `status: discarded` after confirming with
@@ -71,8 +92,10 @@ A malformed note is still a valid note — it is raw material, not an artifact.
   exist as a **real directory** — `openspec/schemas/<name>/` in the target
   repo, or user-level `~/.local/share/openspec/schemas/<name>/`. Symlinked
   schema directories fail with "Unknown schema" (openspec CLI 1.5.0). If the
-  schema is missing, copy it in from its source repo before creating the
-  change (for passdown: `install.sh --into <target-repo>`).
+  schema is missing and the target repo is writable, prefer the repo-local
+  copy from its source repo before creating the change (for passdown:
+  `install.sh --into <target-repo>`). A user-level install writes outside the
+  project and may require explicit approval.
 - A discussion note is not an implementation request. Intake produces
   *plans*, never code changes.
 - Do not batch-guess: when a note's disposition is ambiguous, ask.
