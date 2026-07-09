@@ -16,5 +16,5 @@
 - planning: openspec
 - log_dir: docs/log/
 - log_language: en
-- executors: agy, claude-subagent, main
+- executors: agy, subagent, main
 -->

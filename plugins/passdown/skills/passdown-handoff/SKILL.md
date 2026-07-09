@@ -10,8 +10,14 @@ to catch up. State lives in files, never in the session.
 
 ## Configuration (read first)
 
-Find the nearest `AGENTS.md` walking up from the current directory. Look for
-the `## passdown` section:
+Build the effective passdown configuration root-to-nearest. Read applicable
+`AGENTS.md` files from the workspace/repository root down to the current
+directory, plus any parent file explicitly referenced by a thin entrypoint.
+Merge `## passdown` keys in that order: nearer values override the same key and
+inherit omitted keys. Resolve relative paths against the file that declared
+them.
+
+The effective configuration should contain:
 
 ```markdown
 ## passdown
@@ -19,14 +25,16 @@ the `## passdown` section:
 - log_language: en   # or another language for human-facing logs
 ```
 
-If no configuration exists, ask where session logs should live and suggest
-adding the section.
+If a required key is still missing, ask where session logs should live and
+suggest adding it to the appropriate `AGENTS.md`.
 
 ## Process
 
-1. **Create ONE new log file**: `<log_dir>/YYYY-MM-DD_<short-topic>.md`.
-   One file per session — never append to another session's or agent's file
-   (avoids multi-agent conflicts).
+1. **Create ONE new log file**:
+   `<log_dir>/YYYY-MM-DD_<short-topic>_<agent>-HHMMSS.md`. Before writing,
+   check whether the path already exists. On collision, add an incrementing
+   suffix (`-2`, `-3`, ...) and create a new file; never truncate or append to
+   another session's or agent's file.
 
 2. **Write these sections** (in the configured language):
    - **Header**: date, agent, status (`DONE` / `IN_PROGRESS` / `BLOCKED`),
