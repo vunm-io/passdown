@@ -1,8 +1,8 @@
 # Smoke test
 
 Manual checklist for verifying an install actually works, end to end. Run
-this after any change to `install.sh`, `.claude-plugin/*.json`, or
-`schemas/passdown/`.
+this after any change to `install.sh`, either plugin manifest/marketplace, the
+skills, or `schemas/passdown/`.
 
 ## 0. Manifest validation (also runs in CI)
 
@@ -18,18 +18,19 @@ Bash/WSL path conversion issues with the `.sh` version).
 - [ ] Exit code is 0 (`--strict` fails on unrecognized fields / missing
       metadata, so a green run means the manifests are marketplace-clean)
 
-## 1. Script install (Claude Code + Kiro + OpenSpec)
+## 1. Direct script install (host-selected + OpenSpec)
 
 ```bash
-./install.sh
+home="$(mktemp -d)"
+HOME="$home" ./install.sh --host claude
+HOME="$home" ./install.sh --host codex
+HOME="$home" ./install.sh --host kiro
 ```
 
-- [ ] Output shows `COPY .../.claude/skills/passdown-{intake,dispatch,handoff}`
-- [ ] `ls ~/.claude/skills/ | grep passdown` lists all three, as real
-      directories (not symlinks — the desktop skill browser won't list
-      symlinked entries)
-- [ ] If `~/.kiro` exists: `ls -la ~/.kiro/skills/ | grep passdown` shows
-      symlinked entries pointing back into this repo
+- [ ] Each selected host contains all three real skill directories under
+      `.claude/skills`, `.agents/skills`, or `.kiro/skills`
+- [ ] Running `./tests/install.sh` confirms `--help` is side-effect free,
+      unknown args fail, nested resources copy, and stale files are removed
 - [ ] `openspec schema which passdown` resolves to
       `~/.local/share/openspec/schemas/passdown`, `Source: user`
 - [ ] `openspec schema validate passdown` prints `✓ Schema 'passdown' is valid`
@@ -63,18 +64,23 @@ claude plugin install passdown@passdown
 - [ ] Restart the app/session, then confirm each skill triggers on its
       description (see step 4)
 
-## 4. Codex / Antigravity — executor config, not an install target
+## 4. Codex plugin channel
 
-There is no install step for Codex or Antigravity — confirm the docs and
-your own workspace never point someone at installing passdown "into" them.
+Use an isolated Codex home so an existing direct install cannot mask results:
 
-- [ ] `examples/basic-workspace/AGENTS.md` (or your own workspace's) declares
-      Codex/Antigravity, if at all, under a `## passdown` executors list —
-      not as a place `install.sh` or the plugin marketplace targets
-- [ ] `passdown-dispatch` routes a task tagged `[dispatch: external-ok]` to
-      Codex via the codex plugin / `/codex:rescue`, or to Antigravity via the
-      `agy` CLI, only when that executor is configured — it never tries to
-      "install" passdown skills into either
+```bash
+CODEX_HOME="$(mktemp -d)"
+export CODEX_HOME
+codex plugin marketplace add "$(pwd)"
+codex plugin add passdown@passdown
+codex plugin list
+```
+
+- [ ] `passdown@passdown` is `installed, enabled` at the version in `VERSION`
+- [ ] A new Codex thread lists all three namespaced skills
+- [ ] No unnamespaced `passdown-*` duplicate exists in `$HOME/.agents/skills`
+- [ ] When Codex is the host, a configured `codex` executor is skipped as a
+      self-target; `main` or an explicitly requested native subagent is used
 
 ## 5. Exercise each skill once
 
@@ -86,13 +92,17 @@ schema, and a session log, so you can diff behavior instead of guessing.
       `examples/basic-workspace/docs/inbox/` with a new `status: new` note
       and confirm it proposes a target repo + planning artifact instead of
       writing code
+- [ ] **cross-repo permission preflight**: configure the inbox or target
+      outside writable workspace roots and confirm intake reports the blocked
+      path without redirecting HOME, caches, or config; then grant the proper
+      workspace root and retry
 - [ ] **passdown-dispatch**: point it at
       `examples/basic-workspace/openspec/changes/pkg-0001-demo/tasks.md` and
       confirm it reads the `[dispatch: external-ok]` / `[dispatch: main]`
       tags and proposes routing accordingly (tasks 1.1/1.2 external, 2.1 main)
 - [ ] **passdown-handoff**: end a short session and confirm it writes
-      `docs/log/YYYY-MM-DD_<topic>.md` — one new file, not an append to
-      `2026-07-05_passdown-demo.md`
+      `docs/log/YYYY-MM-DD_<topic>_<agent>-HHMMSS.md`; repeat with the same
+      topic and confirm it creates another file rather than overwriting
 
 ## 6. OpenSpec schema, from scratch
 
