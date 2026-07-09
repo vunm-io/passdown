@@ -15,9 +15,16 @@ Three workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
 
 ## Branch policy
 
-- `main` only. No `develop`, no long-lived feature branches.
-- Linear history: no merge commits, squash/fixup before pushing.
-- Never force-push `main`.
+- `main` is protected and release-ready. Never push directly to `main`.
+- Use short-lived branches and pull requests:
+  - `feat/<topic>` or `fix/<topic>` for normal work.
+  - `codex/<topic>` for Codex-authored work.
+  - `release/vX.Y.Z` only for final release preparation; delete it after merge.
+- No `develop` and no long-lived version lines such as `0.2.x`. While passdown
+  is in v0, fixes move forward into the next release instead of maintaining old
+  minor branches.
+- Require green CI, then squash or rebase into `main`. Never create merge
+  commits and never force-push `main`.
 - One commit = one logical change. Conventional Commits, English, imperative
   mood (`fix: ...`, `feat: ...`, `ci: ...`, `docs: ...`).
 
@@ -34,10 +41,11 @@ Three workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
    # then dry-run against a scratch dir:
    scratch="$(mktemp -d)" && ./install.sh --into "$scratch" && ls "$scratch/openspec/schemas/passdown"
    ```
-3. **JSON edits** (`.claude-plugin/marketplace.json`, `plugins/passdown/.claude-plugin/plugin.json`):
+3. **Manifest edits** (`.claude-plugin/`, `.agents/plugins/`,
+   `plugins/passdown/.claude-plugin/`, `plugins/passdown/.codex-plugin/`):
    ```bash
-   jq empty .claude-plugin/marketplace.json
-   jq empty plugins/passdown/.claude-plugin/plugin.json
+   find .claude-plugin .agents/plugins plugins/passdown -name '*.json' -exec jq empty {} +
+   ./scripts/check-version.sh
    ./scripts/validate-plugin.sh   # claude plugin validate --strict, both manifests
    ```
 4. **Skill edits** (`plugins/passdown/skills/*`): re-run `./install.sh` to
@@ -48,20 +56,18 @@ push/PR — treat a red run the same as a failing test suite, not advisory.
 
 ## Release rule
 
-A release is: bump `version` in **both** `.claude-plugin/marketplace.json`
-(top-level `metadata.version` and the `passdown` plugin's `version`) **and**
-`plugins/passdown/.claude-plugin/plugin.json` to the same value, then tag:
+A release is prepared on a short-lived branch and merged through a green PR.
+Update `VERSION`, both Claude manifest versions, the Codex manifest version,
+and `CHANGELOG.md`, then verify:
 
 ```bash
-git tag -a v0.2.0 -m "v0.2.0"
-git push origin v0.2.0
+./scripts/check-version.sh
+./scripts/release-notes.sh "$(cat VERSION)"
 ```
 
-Keep the two JSON files' versions in sync — the plugin loader reads
-`plugin.json`, the marketplace listing reads `marketplace.json`, and a
-mismatch is confusing for anyone diffing releases. Record the release in
-`CHANGELOG.md`, and follow the full pre-release + go-public gate in
-`docs/RELEASE.md`.
+After the release PR is merged and `main` CI is green, create and push the
+annotated tag. `.github/workflows/release.yml` re-runs the complete validation
+gate and creates the GitHub Release. Follow `docs/RELEASE.md`.
 
 ## Testing an install end-to-end
 
