@@ -1,0 +1,40 @@
+{
+  "name": "passdown",
+  "version": "0.2.0",
+  "description": "Intake, dispatch, and handoff skills for multi-agent, multi-session work.",
+  "author": {
+    "name": "vunm",
+    "url": "https://github.com/vunm-io"
+  },
+  "homepage": "https://github.com/vunm-io/passdown",
+  "repository": "https://github.com/vunm-io/passdown",
+  "license": "MIT",
+  "keywords": [
+    "handoff",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "skills",
+    "openspec",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Passdown",
+    "shortDescription": "Plan, delegate, and hand work between AI sessions.",
+    "longDescription": "Passdown turns captured ideas into plans, routes verifiable tasks to compatible executors, and writes concise session handoffs.",
+    "developerName": "vunm",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/vunm-io/passdown",
+    "defaultPrompt": [
+      "Process new notes from my passdown inbox.",
+      "Dispatch the next planned task safely.",
+      "Write a concise handoff for this session."
+    ],
+    "brandColor": "#2DD4BF"
+  }
+}
