@@ -19,7 +19,7 @@ pass() {
 
 require_text() {
   local file="$1" pattern="$2" description="$3"
-  rg -q -- "$pattern" "$file" || fail "$description"
+  grep -Eq -- "$pattern" "$file" || fail "$description"
   pass "$description"
 }
 
@@ -45,7 +45,7 @@ require_text "$release_workflow" "gh release create" \
 
 version="$(tr -d '[:space:]' <"$repo_root/VERSION")"
 notes="$("$notes_script" "$version")"
-printf '%s\n' "$notes" | rg -q '^### Added|^### Changed|^### Fixed' ||
+printf '%s\n' "$notes" | grep -Eq '^### Added|^### Changed|^### Fixed' ||
   fail "current release notes contain no change categories"
 pass "release notes are extracted from the current VERSION changelog section"
 
@@ -61,7 +61,7 @@ require_text "$repo_root/AGENTS.md" "short-lived" \
 require_text "$repo_root/docs/RELEASE.md" "v0\\.1\\.0.*pending|pending.*v0\\.1\\.0" \
   "release docs record the missing v0.1.0 GitHub prerelease"
 
-if rg -q 'gh repo edit .*--visibility public' "$repo_root/docs/RELEASE.md"; then
+if grep -Eq 'gh repo edit .*--visibility public' "$repo_root/docs/RELEASE.md"; then
   fail "recurring release docs still contain the one-time go-public command"
 fi
 pass "recurring release docs omit the completed visibility change"
