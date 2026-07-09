@@ -16,13 +16,13 @@ pass() {
 
 require_text() {
   local file="$1" pattern="$2" description="$3"
-  rg -q -- "$pattern" "$file" || fail "$description"
+  grep -Eq -- "$pattern" "$file" || fail "$description"
   pass "$description"
 }
 
 reject_text() {
   local file="$1" pattern="$2" description="$3"
-  if rg -q -- "$pattern" "$file"; then
+  if grep -Eq -- "$pattern" "$file"; then
     fail "$description"
   fi
   pass "$description"

@@ -53,6 +53,9 @@ jobs:
       - name: Check release workflow contracts
         run: ./tests/release.sh
 
+      - name: Check documentation contracts
+        run: ./tests/docs.sh
+
       - name: Smoke-test Codex marketplace install
         run: |
           codex_home="$(mktemp -d)"

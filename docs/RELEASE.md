@@ -48,6 +48,7 @@ shellcheck install.sh scripts/*.sh tests/*.sh
 ./tests/skills.sh
 ./tests/version.sh
 ./tests/release.sh
+./tests/docs.sh
 ./scripts/validate-plugin.sh
 
 scratch="$(mktemp -d)"
