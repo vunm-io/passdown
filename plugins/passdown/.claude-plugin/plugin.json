@@ -1,7 +1,7 @@
 {
   "name": "passdown",
   "displayName": "Passdown",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Intake, dispatch, and handoff skills for multi-agent, multi-session work.",
   "author": {
     "name": "vunm",
@@ -14,6 +14,7 @@
     "handoff",
     "ai-agents",
     "claude-code",
+    "codex",
     "skills",
     "openspec",
     "workflow"

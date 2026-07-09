@@ -1,0 +1,20 @@
+{
+  "name": "passdown",
+  "interface": {
+    "displayName": "Passdown"
+  },
+  "plugins": [
+    {
+      "name": "passdown",
+      "source": {
+        "source": "local",
+        "path": "./plugins/passdown"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
