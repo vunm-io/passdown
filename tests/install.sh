@@ -83,11 +83,33 @@ test_skills_only_omits_openspec_schema() {
   pass "--skills-only installs Passdown without OpenSpec schema files"
 }
 
+test_into_rejects_host_and_skills_only_combinations() {
+  local home target combo
+  home="$(new_home)"
+  target="$(mktemp -d)"
+  for combo in \
+    "--skills-only --into $target" \
+    "--into $target --skills-only" \
+    "--host claude --into $target" \
+    "--into $target --host claude"; do
+    # shellcheck disable=SC2086 # combo is a deliberate word-split arg list
+    if HOME="$home" "$installer" $combo >/dev/null 2>&1; then
+      fail "installer accepted invalid combination: $combo"
+    fi
+    [ ! -e "$target/openspec" ] ||
+      fail "invalid combination copied schema: $combo"
+    [ ! -e "$home/.claude" ] ||
+      fail "invalid combination installed skills: $combo"
+  done
+  pass "--into rejects --host and --skills-only in any order without side effects"
+}
+
 test_help_has_no_side_effects
 test_unknown_argument_fails_without_side_effects
 test_into_requires_exactly_one_directory
 test_copy_removes_stale_and_preserves_nested_resources
 test_host_selection_is_scoped
 test_skills_only_omits_openspec_schema
+test_into_rejects_host_and_skills_only_combinations
 
 echo "1..$tests_run"

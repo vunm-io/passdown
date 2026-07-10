@@ -23,8 +23,9 @@ Usage:
 
 Without --host, installs Claude Code skills, Kiro skills when ~/.kiro exists,
 and the user-level OpenSpec schema. Add --skills-only to install Passdown
-without copying the optional OpenSpec schema. Use one install channel per host:
-plugin or script, never both.
+without copying the optional OpenSpec schema. --into copies only the repo-local
+OpenSpec schema and cannot be combined with --host or --skills-only. Use one
+install channel per host: plugin or script, never both.
 EOF
 }
 
@@ -62,6 +63,7 @@ copy_schema() { # copy_schema <dst-dir>
 
 hosts=()
 install_schema=true
+into_dir=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -74,12 +76,12 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --into)
-      if [ "$#" -ne 2 ] || [ ! -d "$2" ]; then
+      if [ "$#" -lt 2 ] || [ ! -d "$2" ] || [ -n "$into_dir" ]; then
         usage >&2
         exit 1
       fi
-      copy_schema "${2%/}/openspec/schemas/passdown"
-      exit 0
+      into_dir="${2%/}"
+      shift 2
       ;;
     --host)
       if [ "$#" -lt 2 ]; then
@@ -103,6 +105,16 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ -n "$into_dir" ]; then
+  if [ "${#hosts[@]}" -gt 0 ] || [ "$install_schema" = false ]; then
+    echo "ERROR: --into cannot be combined with --host or --skills-only" >&2
+    usage >&2
+    exit 1
+  fi
+  copy_schema "$into_dir/openspec/schemas/passdown"
+  exit 0
+fi
 
 if [ "${#hosts[@]}" -eq 0 ]; then
   hosts=(claude)
