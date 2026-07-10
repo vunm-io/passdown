@@ -14,6 +14,12 @@ require_text() {
   pass "$description"
 }
 
+require_text_block() {
+  local file="$1" pattern="$2" description="$3"
+  tr '\n' ' ' <"$file" | grep -Eq -- "$pattern" || fail "$description"
+  pass "$description"
+}
+
 reject_text() {
   local file="$1" pattern="$2" description="$3"
   if grep -Eq -- "$pattern" "$file"; then fail "$description"; fi
@@ -29,7 +35,7 @@ done
 dispatch="$skills_root/passdown-dispatch/SKILL.md"
 require_text "$dispatch" "before executing|before execution" \
   "dispatch is defined as a pre-execution gate"
-require_text "$dispatch" "Superpowers.*executing-plans|executing-plans.*Superpowers" \
+require_text_block "$dispatch" "Superpowers.*executing-plans|executing-plans.*Superpowers" \
   "dispatch explicitly gates Superpowers executing-plans"
 require_text "$dispatch" "three or more pending tasks|3.*pending tasks" \
   "dispatch defines a deterministic multi-task threshold"
@@ -67,9 +73,9 @@ require_text "$handoff" "agent.*time|timestamp|HHMMSS" \
 template="$repo_root/templates/AGENTS.thin.md"
 require_text "$template" "executors: agy, subagent, main" \
   "consumer template uses the portable subagent executor name"
-require_text "$template" "MUST invoke.*passdown-dispatch|passdown-dispatch.*MUST" \
+require_text_block "$template" "MUST invoke.*passdown-dispatch|passdown-dispatch.*MUST" \
   "consumer template makes the dispatch gate mandatory"
-require_text "$template" "Superpowers.*executing-plans|executing-plans.*Superpowers" \
+require_text_block "$template" "Superpowers.*executing-plans|executing-plans.*Superpowers" \
   "consumer template prevents Superpowers from bypassing dispatch"
 
 plan="$repo_root/templates/plan.md"
