@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0-beta.1] - 2026-07-10
+
+Beta build for the `release/v0.3.0` testing window — not a GitHub release.
+
 ### Added
 
 - Standalone markdown planning template with Passdown dispatch tags, done
