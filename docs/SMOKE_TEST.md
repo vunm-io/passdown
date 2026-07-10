@@ -126,3 +126,53 @@ openspec status --change my-test-change
       `[x]` once `tasks.md` exists
 
 Clean up: `rm -rf /tmp/passdown-smoke`.
+
+## 7. Integration matrix (see docs/INTEGRATIONS.md)
+
+Run these in a Claude Code session against a scratch workspace whose
+`AGENTS.md` contains the dispatch invariant from `templates/AGENTS.thin.md`.
+
+### 7a. Passdown only (no OpenSpec, no Superpowers)
+
+```bash
+export HOME="$(mktemp -d)"
+./install.sh --host claude --skills-only
+```
+
+- [ ] All three skills install; nothing exists under
+      `~/.local/share/openspec/`
+- [ ] With `planning: markdown` and a `plan_dir` configured, intake creates a
+      plan file shaped like `templates/plan.md` (dispatch tags, Paths, Done
+      criteria, Verification) instead of an OpenSpec change
+- [ ] `passdown-dispatch` reads the markdown plan's `[dispatch: ...]` tags and
+      proposes routing without any OpenSpec CLI present
+
+### 7b. Passdown + OpenSpec
+
+- [ ] Steps 1–2 and 6 above pass (schema installs, resolves, validates)
+- [ ] Intake with `planning: openspec` creates a change via
+      `openspec new change --schema passdown`
+- [ ] Dispatch reads `tasks.md` dispatch tags as in step 5
+
+### 7c. Passdown + Superpowers
+
+- [ ] Give the session a plan with three or more pending tasks and ask it to
+      execute; confirm `passdown-dispatch` runs **before** Superpowers
+      `executing-plans` starts implementing (per-task routing decisions are
+      stated first)
+- [ ] Superpowers must not begin inline or subagent execution with no routing
+      decision recorded — if it does, the dispatch gate has regressed
+- [ ] Routing every task to `main` is a valid gate outcome; execution then
+      proceeds in-session
+- [ ] A single clearly scoped task requested directly does not trigger the
+      gate
+- [ ] An explicit user request to stay in the main session is honored (tasks
+      route to `main`; the gate is not silently skipped)
+
+### 7d. Passdown + OpenSpec + Superpowers
+
+- [ ] Full flow: OpenSpec change → Superpowers planning discipline →
+      `passdown-dispatch` routing → execution → verification →
+      `passdown-handoff`
+- [ ] Native subagents are used only with explicit user authorization even
+      when Superpowers proposes subagent-driven execution
