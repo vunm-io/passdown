@@ -1,6 +1,6 @@
 ---
 name: passdown-dispatch
-description: Use when executing tasks from a plan/change and deciding who should run each task — routes work to the cheapest capable executor (external CLI agents, subagents, or the main session) and verifies results before marking tasks done
+description: Use before executing any multi-task plan or change, including before Superpowers executing-plans, to decide which tasks stay in the current session and which run on configured external CLI agents or explicitly authorized native subagents; verifies delegated results before marking tasks done
 ---
 
 # Passdown Dispatch
@@ -8,6 +8,27 @@ description: Use when executing tasks from a plan/change and deciding who should
 The orchestrator session should stay small and cheap. Route each task to the
 cheapest executor that can do it well; keep only judgment-heavy work in the
 main session.
+
+## Execution gate
+
+Run this skill **before execution begins** when any of these conditions apply:
+
+- the plan or change has three or more pending tasks;
+- any task has a `[dispatch: ...]` tag;
+- any pending task is independently delegable or mechanical; or
+- another installed skill or plugin is about to execute the plan, including
+  Superpowers `executing-plans`.
+
+Do not enter an inline plan executor, Superpowers `executing-plans`, an
+external CLI adapter, or a native subagent executor until routing is complete.
+The gate may still route every task to `main`; the required outcome is an
+explicit per-task routing decision before implementation starts.
+
+A direct user instruction to execute one clearly scoped task does not require
+this gate unless that task itself requests delegation. When a user explicitly
+asks to bypass delegation and work only in the current session, honor that
+choice and route the relevant tasks to `main` rather than silently skipping the
+gate.
 
 ## Configuration (read first)
 
@@ -47,9 +68,10 @@ setup work, done before the executor earns its place in the list.
 
 ## Routing rules (starting point — tune per workspace)
 
-- **Honor explicit tags first**: tasks planned with the passdown schema may
-  carry `[dispatch: external-ok]` or `[dispatch: main]` tags — follow them.
-  Untagged tasks are classified by the rules below.
+- **Honor explicit tags first**: tasks planned with the passdown schema or the
+  standalone markdown template may carry `[dispatch: external-ok]` or
+  `[dispatch: main]` tags — follow them. Untagged tasks are classified by the
+  rules below.
 - **Mechanical, fully specified** (rename, apply a template, config change,
   boilerplate): cheapest external CLI executor.
 - **Moderate, verifiable** (small feature with tests, clear spec): subagent
