@@ -59,6 +59,14 @@ reject_text "$dispatch" "Return/relay the executor's result \*\*verbatim\*\*" \
   "dispatch no longer relays successful output verbatim"
 
 intake="$skills_root/passdown-intake/SKILL.md"
+require_text "$intake" "planning: markdown \| openspec" \
+  "intake supports both markdown and openspec planning"
+require_text "$intake" "plan_dir" \
+  "intake defines the markdown plan directory key"
+require_text_block "$intake" "planning: markdown.*templates/plan\.md" \
+  "intake defines markdown planning artifact creation"
+reject_text "$intake" "<other convention>" \
+  "intake no longer leaves the planning convention unspecified"
 require_text "$intake" "write access|writable" \
   "intake checks cross-repo write access"
 require_text "$intake" "Do not redirect.*HOME|no HOME redirects|Never redirect.*HOME" \
@@ -83,6 +91,8 @@ require_text "$plan" "dispatch: external-ok" \
   "standalone markdown plan includes external routing tags"
 require_text "$plan" "dispatch: main" \
   "standalone markdown plan includes main-session routing tags"
+require_text "$plan" "Paths:" \
+  "standalone markdown tasks require paths"
 require_text "$plan" "Done criteria" \
   "standalone markdown tasks require done criteria"
 require_text "$plan" "Verification" \

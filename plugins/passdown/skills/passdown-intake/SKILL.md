@@ -28,7 +28,8 @@ The effective configuration should contain:
 ```markdown
 ## passdown
 - inbox: <path to inbox directory>
-- planning: openspec | <other convention>
+- planning: markdown | openspec
+- plan_dir: <path for markdown plans>   # required when planning: markdown
 - targets: <repo1>, <repo2>, ...   # known target repos for routing
 ```
 
@@ -71,11 +72,15 @@ A malformed note is still a valid note — it is raw material, not an artifact.
      - **Actionable work** → determine the target repo (use `target:` hint,
        the routing rules in AGENTS.md, or ask). Create the planning artifact
        in the target repo using the workspace's planning convention. For
+       `planning: markdown`, create a plan file in the target repo's
+       `plan_dir` following the structure of passdown's `templates/plan.md`:
+       every task carries a `[dispatch: external-ok]` or `[dispatch: main]`
+       tag plus Paths, Done criteria, and Verification. For
        `planning: openspec`, use the portable `openspec new change` CLI path;
        a host-specific command such as `/opsx:propose` may be used only when
-       that host actually provides it. The artifact must be self-contained:
-       an executor must be able to work from it without reading this
-       conversation.
+       that host actually provides it. Either way the artifact must be
+       self-contained: an executor must be able to work from it without
+       reading this conversation.
      - **Knowledge, not work** → refile into the workspace's knowledge
        location per its conventions.
      - **Obsolete/noise** → mark `status: discarded` after confirming with
