@@ -10,10 +10,17 @@
 
 ## passdown
 
+Before executing any multi-task plan, the agent MUST invoke
+`passdown-dispatch` and classify all pending tasks. This rule applies even when
+another installed skill or plugin provides its own plan executor, including
+Superpowers `executing-plans`. The routing gate may assign every task to
+`main`, but it must run before implementation starts.
+
 <!-- Per-repo overrides for passdown skills. Omit keys to inherit the parent's. -->
 <!--
 - inbox: docs/inbox/
-- planning: openspec
+- planning: markdown            # markdown | openspec
+- plan_dir: docs/plans/          # used when planning: markdown
 - log_dir: docs/log/
 - log_language: en
 - executors: agy, subagent, main
