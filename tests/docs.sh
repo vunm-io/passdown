@@ -20,6 +20,12 @@ require_text() {
   pass "$description"
 }
 
+require_text_block() {
+  local file="$1" pattern="$2" description="$3"
+  tr '\n' ' ' <"$file" | grep -Eq -- "$pattern" || fail "$description"
+  pass "$description"
+}
+
 reject_text() {
   local file="$1" pattern="$2" description="$3"
   if grep -Eq -- "$pattern" "$file"; then
@@ -44,12 +50,45 @@ reject_text "$readme" "Codex and Antigravity are dispatch targets, not places pa
 reject_text "$readme" "Neither runs passdown skills directly" \
   "README no longer groups Codex with executor-only tools"
 
+require_text "$readme" "skills-only" \
+  "README documents the --skills-only install mode"
+require_text "$readme" "optional" \
+  "README states that the integrations are optional"
+require_text "$readme" "dispatch gate|pre-execution gate" \
+  "README documents the pre-execution dispatch gate"
+require_text "$readme" "templates/plan\\.md" \
+  "README documents the standalone markdown plan template"
+require_text "$readme" "docs/INTEGRATIONS\\.md" \
+  "README links the integrations guide"
+reject_text "$readme" "trigger automatically on their descriptions, and" \
+  "README no longer presents description triggering as deterministic"
+
 require_text "$smoke" "Codex plugin channel" \
   "smoke test covers the Codex plugin channel"
 require_text "$smoke" "CODEX_HOME" \
   "smoke test isolates Codex installation state"
 require_text "$smoke" "cross-repo.*permission|permission.*cross-repo" \
   "smoke test covers cross-repo permissions"
+require_text "$smoke" "Passdown only" \
+  "smoke test covers standalone Passdown"
+require_text "$smoke" "Passdown \\+ OpenSpec$" \
+  "smoke test covers Passdown with OpenSpec"
+require_text "$smoke" "Passdown \\+ Superpowers" \
+  "smoke test covers Passdown with Superpowers"
+require_text "$smoke" "Passdown \\+ OpenSpec \\+ Superpowers" \
+  "smoke test covers the combined integration"
+require_text_block "$smoke" "before.*Superpowers.*executing-plans" \
+  "smoke test verifies Superpowers cannot bypass dispatch"
+
+integrations="$repo_root/docs/INTEGRATIONS.md"
+require_text "$integrations" "Standalone Passdown" \
+  "integrations guide covers standalone Passdown"
+require_text "$integrations" "OpenSpec" \
+  "integrations guide covers OpenSpec"
+require_text "$integrations" "Superpowers" \
+  "integrations guide covers Superpowers"
+require_text "$integrations" "skills-only" \
+  "integrations guide documents the skills-only install"
 
 design="$repo_root/schemas/passdown/templates/design.md"
 require_text "$design" "^## Migration Plan" \

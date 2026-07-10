@@ -61,6 +61,25 @@ also why the skills survive any `cwd` and any repo.
 | `passdown-dispatch` | Routes each task to the cheapest compatible external CLI, native subagent, or main session, then verifies the result |
 | `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, and the traps that live nowhere else |
 
+**The dispatch gate.** `passdown-dispatch` is a *pre-execution gate*, not just
+another skill: before a multi-task plan is executed — by the session itself or
+by another plugin's executor, such as Superpowers `executing-plans` — every
+pending task gets an explicit routing decision. The gate may route everything
+to the main session; what it prevents is implementation starting with no
+routing decision at all. Single, clearly scoped tasks requested directly by
+the user are not hijacked, and native subagents still require explicit user
+authorization. The consumer `AGENTS.md` template
+([`templates/AGENTS.thin.md`](templates/AGENTS.thin.md)) states this invariant
+so it holds in every workspace.
+
+**Planning is pluggable.** Plans can be plain markdown files (see
+[`templates/plan.md`](templates/plan.md)) with `[dispatch: external-ok]` /
+`[dispatch: main]` tags, or [OpenSpec](https://github.com/Fission-AI/openspec)
+changes using the bundled `passdown` schema. Neither OpenSpec nor
+[superpowers](https://github.com/obra/superpowers) is required — see
+[`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for the standalone and combined
+workflows.
+
 **Host vs. executor.** passdown can run as the orchestrator in Claude Code,
 Codex, or Kiro. An executor is a separate target selected by
 `passdown-dispatch`. Codex may be an external executor when passdown runs on a
@@ -77,15 +96,19 @@ subagent.
 | **Kiro** | Secondary host — user-level skill dir, same skills | Supported | `git clone` + `./install.sh --host kiro` |
 | **Antigravity** | Dispatch executor — receives tasks from `passdown-dispatch` | Executor target, not a host | Not installed directly; configured as an executor in the consumer repo's `AGENTS.md`, invoked via the `agy` CLI |
 
-passdown composes with, and does not replace:
+passdown composes with, and does not replace — all of these are **optional**:
 
 - [superpowers](https://github.com/obra/superpowers) — process discipline
-  (TDD, debugging, planning etiquette)
+  (TDD, debugging, planning etiquette); its plan executor must still pass
+  through the passdown dispatch gate
 - [OpenSpec](https://github.com/Fission-AI/openspec) — planning artifacts
   (living specs, change deltas, task lists whose state lives in files, not in
-  sessions)
+  sessions); without it, use the standalone markdown plan template
 - [codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — an optional
   Claude Code → Codex executor adapter
+
+See [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for how each combination is
+expected to behave.
 
 ## Install
 
@@ -101,8 +124,9 @@ The plugin (and its skills) then shows up under Personal plugins, like any
 marketplace plugin.
 
 Once installed, the three skills load under the `passdown` plugin namespace.
-They trigger automatically on their descriptions, and you can invoke them
-explicitly:
+They can trigger automatically on their descriptions — best-effort, not
+guaranteed, which is why the consumer `AGENTS.md` invariant and explicit
+invocation exist — and you can invoke them directly:
 
 - `/passdown:passdown-intake`
 - `/passdown:passdown-dispatch`
@@ -131,6 +155,13 @@ git clone https://github.com/vunm-io/passdown.git && cd passdown
 ./install.sh --host kiro
 ```
 
+If you do not use OpenSpec, add `--skills-only` to skip the optional OpenSpec
+schema files:
+
+```bash
+./install.sh --host claude --skills-only
+```
+
 Pick **one channel per host**: plugin or direct install, never both. Duplicate
 channels expose namespaced and unnamespaced copies of the same skill and can
 leave different versions active. Remove the direct `passdown-*` directories
@@ -153,8 +184,9 @@ Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 plugins/passdown/skills/   # the three skills (English, workspace-agnostic)
 plugins/passdown/.codex-plugin/ # native Codex plugin manifest
 .agents/plugins/marketplace.json # native Codex marketplace
-schemas/passdown/          # OpenSpec workflow schema customizations
+schemas/passdown/          # OpenSpec workflow schema customizations (optional)
 templates/AGENTS.thin.md   # thin AGENTS.md template for sub-repos
+templates/plan.md          # standalone markdown plan template (no OpenSpec)
 assets/                    # README hero + flow SVGs
 install.sh                 # host-selectable user installer + repo-local schema copy
 scripts/check-version.sh   # VERSION/manifest/tag agreement
@@ -162,6 +194,7 @@ scripts/validate-plugin.sh   # strict manifest validation (bash)
 scripts/validate-plugin.ps1  # same, for Windows PowerShell (Git Bash/WSL path issues)
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
 docs/SMOKE_TEST.md         # manual verification checklist for install + skills
+docs/INTEGRATIONS.md       # standalone, OpenSpec, and Superpowers workflows
 docs/EXECUTOR_SETUP.md     # pre-flight checklist before adding a dispatch executor
 docs/GITHUB_SETTINGS.md    # required merge methods and main ruleset
 ```
