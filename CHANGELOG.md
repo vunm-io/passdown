@@ -6,6 +6,26 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Standalone markdown planning template with Passdown dispatch tags, done
+  criteria, and verification fields.
+- Optional `--skills-only` direct-install mode for users who do not use
+  OpenSpec.
+- Integration guidance for standalone Passdown, OpenSpec, Superpowers, and the
+  combined workflow.
+
+### Changed
+
+- Made `passdown-dispatch` an explicit pre-execution gate for multi-task plans,
+  including plans about to enter Superpowers `executing-plans`.
+- Added a consumer workspace invariant requiring routing before implementation.
+
+### Fixed
+
+- Prevent plan executors from bypassing Passdown routing merely because another
+  plugin entered its own execution skill first.
+
 ## [0.2.0] - 2026-07-09
 
 ### Added
