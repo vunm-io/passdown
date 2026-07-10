@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
-# Install passdown skills and schema into user-level locations so they are
-# available in every repo, for every tool that reads them.
+# Install passdown skills and optional OpenSpec schema into user-level locations.
 #
 #   ./install.sh                         # Claude Code (+ Kiro if present) + schema
 #   ./install.sh --host codex            # selected host + schema
-#   ./install.sh --host claude --host kiro
+#   ./install.sh --host claude --skills-only
 #   ./install.sh --into <repo>           # repo-local schema only
 #
-# Claude Code skills are installed as REAL copies: its desktop skill browser
-# does not list symlinked entries (the CLI runtime does, but the UI is the
-# stricter consumer). Re-run this script after editing skills to sync.
-# Codex and Kiro receive the same real copies when selected explicitly.
-#
-# The OpenSpec schema is also installed as a REAL copy: the openspec CLI
-# (1.5.0) ignores symlinked schema directories in `new change`, `status`, and
-# `instructions apply` ("Unknown schema"), even though `schema which` resolves
-# them. Re-run this script after editing the schema to sync.
+# Skills and the OpenSpec schema are installed as real copies. Re-run this
+# script after editing source files to synchronize an existing direct install.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,13 +17,14 @@ usage() {
   cat <<'EOF'
 Usage:
   ./install.sh
-  ./install.sh --host <claude|codex|kiro> [--host <host> ...]
+  ./install.sh --host <claude|codex|kiro> [--host <host> ...] [--skills-only]
   ./install.sh --into <existing-repo-dir>
   ./install.sh --help
 
 Without --host, installs Claude Code skills, Kiro skills when ~/.kiro exists,
-and the user-level OpenSpec schema. Use one install channel per host: plugin or
-script, never both.
+and the user-level OpenSpec schema. Add --skills-only to install Passdown
+without copying the optional OpenSpec schema. Use one install channel per host:
+plugin or script, never both.
 EOF
 }
 
@@ -68,12 +61,17 @@ copy_schema() { # copy_schema <dst-dir>
 }
 
 hosts=()
+install_schema=true
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --help|-h)
       usage
       exit 0
+      ;;
+    --skills-only)
+      install_schema=false
+      shift
       ;;
     --into)
       if [ "$#" -ne 2 ] || [ ! -d "$2" ]; then
@@ -124,11 +122,14 @@ for host in "${hosts[@]}"; do
   done
 done
 
-# OpenSpec user-level schema — real copy, see header note
-if [ -f "$REPO_DIR/schemas/passdown/schema.yaml" ]; then
-  copy_schema "$HOME/.local/share/openspec/schemas/passdown"
+if [ "$install_schema" = true ]; then
+  if [ -f "$REPO_DIR/schemas/passdown/schema.yaml" ]; then
+    copy_schema "$HOME/.local/share/openspec/schemas/passdown"
+  else
+    echo "NOTE  schemas/passdown/schema.yaml not generated yet — skipping OpenSpec schema copy"
+  fi
 else
-  echo "NOTE  schemas/passdown/schema.yaml not generated yet — skipping OpenSpec schema copy"
+  echo "SKIP  optional OpenSpec schema (--skills-only)"
 fi
 
 echo "Done."
