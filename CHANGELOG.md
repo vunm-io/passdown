@@ -10,6 +10,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Beta build for the `release/v0.4.0` testing window — not a GitHub release.
 
+### Fixed
+
+- Restore the 0.1.0 changelog entries and version link references dropped by
+  the v0.3.0 release commit.
+
 ## [0.3.0] - 2026-07-13
 
 ### Added
