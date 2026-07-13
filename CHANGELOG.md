@@ -6,6 +6,34 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-13
+
+### Added
+
+- Standalone markdown planning template with Passdown dispatch tags, done
+  criteria, and verification fields.
+- Optional `--skills-only` direct-install mode for users who do not use
+  OpenSpec.
+- Integration guidance for standalone Passdown, OpenSpec, Superpowers, and the
+  combined workflow.
+
+### Changed
+
+- Made `passdown-dispatch` an explicit pre-execution gate for multi-task plans,
+  including plans about to enter Superpowers `executing-plans`.
+- Added a consumer workspace invariant requiring routing before implementation.
+- Defined `planning: markdown` with a `plan_dir` key in `passdown-intake`, so
+  standalone plans are created from the markdown template without OpenSpec.
+- Documented the dispatch gate, optional integrations, standalone markdown
+  planning, and `--skills-only` in the README and smoke-test checklist.
+
+### Fixed
+
+- Prevent plan executors from bypassing Passdown routing merely because another
+  plugin entered its own execution skill first.
+- Reject combining `--into` with `--host` or `--skills-only` in any argument
+  order instead of silently installing the schema and dropping the other flags.
+
 ## [0.2.0] - 2026-07-09
 
 ### Added
@@ -48,10 +76,3 @@ Initial dogfooding snapshot.
 
 - Three workspace-agnostic skills: intake, dispatch, and handoff.
 - Claude Code plugin and marketplace manifests.
-- User-level skill installer and thin consumer `AGENTS.md` template.
-- OpenSpec `passdown` schema with self-contained task metadata and dispatch
-  tags.
-
-[Unreleased]: https://github.com/vunm-io/passdown/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/vunm-io/passdown/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/vunm-io/passdown/releases/tag/v0.1.0

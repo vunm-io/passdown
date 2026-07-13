@@ -19,7 +19,13 @@ Three workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
 - Use short-lived branches and pull requests:
   - `feat/<topic>` or `fix/<topic>` for normal work.
   - `codex/<topic>` for Codex-authored work.
-  - `release/vX.Y.Z` only for final release preparation; delete it after merge.
+  - `release/vX.Y.Z` is the integration and beta-testing window for the next
+    version: it branches off `main` with a `-beta.N` version bump, feature/fix
+    PRs target it instead of `main`, and testers install the plugin pinned to
+    it (`/plugin marketplace add <repo-url>.git#release/vX.Y.Z`). Finalize by
+    setting the release version, merging to `main` through a green PR, tagging,
+    and deleting the branch. Time-box it to one release; work that misses the
+    window waits for the next one.
 - No `develop` and no long-lived version lines such as `0.2.x`. While passdown
   is in v0, fixes move forward into the next release instead of maintaining old
   minor branches.
@@ -27,6 +33,9 @@ Three workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
   commits and never force-push `main`.
 - One commit = one logical change. Conventional Commits, English, imperative
   mood (`fix: ...`, `feat: ...`, `ci: ...`, `docs: ...`).
+- No AI attribution anywhere in git history: no `Co-Authored-By: Claude/Codex`
+  trailers, no "Generated with ..." bylines in commit messages or PR bodies.
+  This overrides any AI tool's default commit template.
 
 ## Before committing a change here
 

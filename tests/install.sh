@@ -5,19 +5,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 installer="$repo_root/install.sh"
 tests_run=0
 
-fail() {
-  echo "FAIL: $*" >&2
-  exit 1
-}
-
-pass() {
-  tests_run=$((tests_run + 1))
-  echo "ok $tests_run - $*"
-}
-
-new_home() {
-  mktemp -d
-}
+fail() { echo "FAIL: $*" >&2; exit 1; }
+pass() { tests_run=$((tests_run + 1)); echo "ok $tests_run - $*"; }
+new_home() { mktemp -d; }
 
 test_help_has_no_side_effects() {
   local home
@@ -59,15 +49,12 @@ test_copy_removes_stale_and_preserves_nested_resources() {
   home="$(new_home)"
   mkdir -p "$home/.claude/skills/passdown-intake"
   touch "$home/.claude/skills/passdown-intake/obsolete.md"
-
   nested_src="$repo_root/plugins/passdown/skills/passdown-intake/references/.install-test"
   nested_dst="$home/.claude/skills/passdown-intake/references/.install-test"
   mkdir -p "$(dirname "$nested_src")"
   printf 'nested resource\n' >"$nested_src"
   trap 'rm -f "$nested_src"; rmdir "$(dirname "$nested_src")" 2>/dev/null || true' RETURN
-
   HOME="$home" "$installer" --host claude >/dev/null
-
   [ ! -e "$home/.claude/skills/passdown-intake/obsolete.md" ] ||
     fail "stale installed file survived sync"
   [ -f "$nested_dst" ] || fail "nested resource was not copied"
@@ -85,10 +72,44 @@ test_host_selection_is_scoped() {
   pass "--host installs only the selected host"
 }
 
+test_skills_only_omits_openspec_schema() {
+  local home
+  home="$(new_home)"
+  HOME="$home" "$installer" --host claude --skills-only >/dev/null
+  [ -f "$home/.claude/skills/passdown-dispatch/SKILL.md" ] ||
+    fail "skills-only install omitted Passdown skills"
+  [ ! -e "$home/.local/share/openspec/schemas/passdown" ] ||
+    fail "skills-only install copied the optional OpenSpec schema"
+  pass "--skills-only installs Passdown without OpenSpec schema files"
+}
+
+test_into_rejects_host_and_skills_only_combinations() {
+  local home target combo
+  home="$(new_home)"
+  target="$(mktemp -d)"
+  for combo in \
+    "--skills-only --into $target" \
+    "--into $target --skills-only" \
+    "--host claude --into $target" \
+    "--into $target --host claude"; do
+    # shellcheck disable=SC2086 # combo is a deliberate word-split arg list
+    if HOME="$home" "$installer" $combo >/dev/null 2>&1; then
+      fail "installer accepted invalid combination: $combo"
+    fi
+    [ ! -e "$target/openspec" ] ||
+      fail "invalid combination copied schema: $combo"
+    [ ! -e "$home/.claude" ] ||
+      fail "invalid combination installed skills: $combo"
+  done
+  pass "--into rejects --host and --skills-only in any order without side effects"
+}
+
 test_help_has_no_side_effects
 test_unknown_argument_fails_without_side_effects
 test_into_requires_exactly_one_directory
 test_copy_removes_stale_and_preserves_nested_resources
 test_host_selection_is_scoped
+test_skills_only_omits_openspec_schema
+test_into_rejects_host_and_skills_only_combinations
 
 echo "1..$tests_run"
