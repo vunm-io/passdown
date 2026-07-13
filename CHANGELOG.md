@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0-beta.1] - 2026-07-13
+
+Beta build for the `release/v0.4.0` testing window — not a GitHub release.
+
 ## [0.3.0] - 2026-07-13
 
 ### Added
