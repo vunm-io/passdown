@@ -6,9 +6,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.3.0-beta.1] - 2026-07-10
-
-Beta build for the `release/v0.3.0` testing window — not a GitHub release.
+## [0.3.0] - 2026-07-13
 
 ### Added
 
@@ -78,10 +76,3 @@ Initial dogfooding snapshot.
 
 - Three workspace-agnostic skills: intake, dispatch, and handoff.
 - Claude Code plugin and marketplace manifests.
-- User-level skill installer and thin consumer `AGENTS.md` template.
-- OpenSpec `passdown` schema with self-contained task metadata and dispatch
-  tags.
-
-[Unreleased]: https://github.com/vunm-io/passdown/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/vunm-io/passdown/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/vunm-io/passdown/releases/tag/v0.1.0
