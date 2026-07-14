@@ -192,6 +192,7 @@ templates/plan.md          # standalone markdown plan template (no OpenSpec)
 assets/                    # README hero + flow SVGs
 install.sh                 # host-selectable user installer + repo-local schema copy
 scripts/check-version.sh   # VERSION/manifest/tag agreement
+scripts/doctor.sh          # install-channel hygiene: one channel per host, no drift
 scripts/validate-plugin.sh   # strict manifest validation (bash)
 scripts/validate-plugin.ps1  # same, for Windows PowerShell (Git Bash/WSL path issues)
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
