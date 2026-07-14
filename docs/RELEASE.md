@@ -45,6 +45,7 @@ Run:
 bash -n install.sh scripts/*.sh tests/*.sh
 shellcheck install.sh scripts/*.sh tests/*.sh
 ./tests/install.sh
+./tests/doctor.sh
 ./tests/skills.sh
 ./tests/version.sh
 ./tests/release.sh

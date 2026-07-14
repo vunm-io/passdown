@@ -34,6 +34,8 @@ export HOME="$(mktemp -d)"
 - [ ] `openspec schema which passdown` resolves to
       `~/.local/share/openspec/schemas/passdown`, `Source: user`
 - [ ] `openspec schema validate passdown` prints `✓ Schema 'passdown' is valid`
+- [ ] `./scripts/doctor.sh` reports one channel per host and no out-of-sync
+      direct installs (run it against your real `HOME` after installing)
 
 ## 2. Per-repo install (self-contained, no passdown clone needed later)
 
