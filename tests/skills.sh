@@ -57,6 +57,10 @@ reject_text "$dispatch" "claude-subagent" \
   "dispatch no longer exposes the Claude-specific subagent name"
 reject_text "$dispatch" "Return/relay the executor's result \*\*verbatim\*\*" \
   "dispatch no longer relays successful output verbatim"
+require_text "$dispatch" "[Mm]aterialize" \
+  "dispatch materializes routing decisions in the plan file"
+require_text "$dispatch" "Dispatched: <executor>" \
+  "dispatch records an outcome line under the task"
 
 intake="$skills_root/passdown-intake/SKILL.md"
 require_text "$intake" "planning: markdown \| openspec" \
@@ -97,5 +101,7 @@ require_text "$plan" "Done criteria" \
   "standalone markdown tasks require done criteria"
 require_text "$plan" "Verification" \
   "standalone markdown tasks require verification"
+require_text "$plan" "Dispatched:" \
+  "standalone plan documents the dispatch outcome line"
 
 echo "1..$tests_run"

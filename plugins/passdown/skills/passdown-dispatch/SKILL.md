@@ -24,6 +24,12 @@ external CLI adapter, or a native subagent executor until routing is complete.
 The gate may still route every task to `main`; the required outcome is an
 explicit per-task routing decision before implementation starts.
 
+Materialize the decision: when the plan lives in a file (a markdown plan or an
+OpenSpec `tasks.md`), write the routing decision into that file before
+execution starts — add the missing `[dispatch: ...]` tag to each untagged
+task. A decision that lives only in the session transcript is lost at the next
+handoff.
+
 A direct user instruction to execute one clearly scoped task does not require
 this gate unless that task itself requests delegation. When a user explicitly
 asks to bypass delegation and work only in the current session, honor that
@@ -118,7 +124,11 @@ When sending a task to an external executor:
    to be created or changed by that executor. Never run broad reset/clean
    commands and never discard pre-existing user changes. If attribution is
    ambiguous, stop and ask instead of cleaning or retrying.
-7. Use only flags supported by the selected adapter. Execution/background and
+7. **Record the outcome in the plan**: after verification, append one line
+   under the dispatched task — `- Dispatched: <executor> (<YYYY-MM-DD>) —
+   <outcome>; verified: <how>`. Record failed dispatches too; the failure and
+   its root cause are exactly what the next shift needs.
+8. Use only flags supported by the selected adapter. Execution/background and
    resume/fresh vocabulary is adapter-specific, not a portable contract.
 
 ## Rules
