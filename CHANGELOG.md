@@ -6,6 +6,33 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0-beta.2] - 2026-07-14
+
+Beta build for the `release/v0.4.0` testing window — not a GitHub release.
+
+### Added
+
+- `passdown-pickup` skill: reads the latest handoff log and plan state,
+  verifies them against the working tree, and briefs the next session —
+  closing the shift-handover loop.
+- Machine-readable YAML frontmatter (`status`, `branch`, `agent`, `plan`) at
+  the top of every handoff log, plus a defined agent-identity convention.
+- `scripts/doctor.sh`: reports install-channel hygiene per host — dual
+  plugin/direct installs and direct installs that drifted from the checkout —
+  with a regression suite wired into CI.
+
+### Changed
+
+- `passdown-dispatch` now materializes routing decisions as `[dispatch: ...]`
+  tags in the plan file and records a `Dispatched:` outcome line under each
+  task executed off the main session.
+
+### Fixed
+
+- Added the missing `0.4.0-beta.1` link reference; the documentation contract
+  tests now require a link reference for every CHANGELOG version heading, and
+  `check-version.sh` requires a CHANGELOG section for the current version.
+
 ## [0.4.0-beta.1] - 2026-07-13
 
 Beta build for the `release/v0.4.0` testing window — not a GitHub release.
@@ -90,6 +117,7 @@ Initial dogfooding snapshot.
   tags.
 
 [Unreleased]: https://github.com/vunm-io/passdown/compare/v0.3.0...HEAD
+[0.4.0-beta.2]: https://github.com/vunm-io/passdown/compare/v0.3.0...release/v0.4.0
 [0.4.0-beta.1]: https://github.com/vunm-io/passdown/compare/v0.3.0...release/v0.4.0
 [0.3.0]: https://github.com/vunm-io/passdown/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vunm-io/passdown/compare/v0.1.0...v0.2.0
