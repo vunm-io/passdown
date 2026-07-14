@@ -1,6 +1,6 @@
 {
   "name": "passdown",
-  "version": "0.4.0-beta.1",
+  "version": "0.4.0-beta.2",
   "description": "Intake, dispatch, handoff, and pickup skills for multi-agent, multi-session work.",
   "author": {
     "name": "vunm",
