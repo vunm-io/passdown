@@ -7,8 +7,8 @@ config, unlike the thin `AGENTS.md` this project generates for consumers
 
 ## What this repo is
 
-Three workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
-`passdown-dispatch`, `passdown-handoff`) plus an OpenSpec workflow schema
+Four workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
+`passdown-dispatch`, `passdown-handoff`, `passdown-pickup`) plus an OpenSpec workflow schema
 (`schemas/passdown/`) that makes tasks self-contained and dispatchable. See
 `README.md` for the full pitch and `docs/design-2026-07-04-passdown-workflow.md`
 (in the `vunm-workspace` meta-repo, not here) for the original design.
@@ -90,7 +90,7 @@ openspec schema which passdown   # should resolve to ~/.local/share/openspec/sch
 ./install.sh --into /path/to/some/repo
 ```
 
-Full checklist (plugin channel, all three skills, OpenSpec schema
+Full checklist (plugin channel, all four skills, OpenSpec schema
 regression checks): `docs/SMOKE_TEST.md`. Its fixture is
 `examples/basic-workspace/` — keep that in sync if the skills' expected
 inbox/log/change format changes.

@@ -7,7 +7,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/status-v0%20dogfooding-orange.svg" alt="Status: v0 dogfooding">
-  <img src="https://img.shields.io/badge/skills-3-2dd4bf.svg" alt="3 skills">
+  <img src="https://img.shields.io/badge/skills-4-2dd4bf.svg" alt="4 skills">
   <a href="https://github.com/vunm-io/passdown/actions/workflows/ci.yml"><img src="https://github.com/vunm-io/passdown/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
@@ -49,7 +49,7 @@ problems:
   <img src="assets/flow.svg" alt="inbox → intake → dispatch → handoff" width="100%">
 </p>
 
-passdown is three **workspace-agnostic skills** installed at user level, plus
+passdown is four **workspace-agnostic skills** installed at user level, plus
 conventions. Skills are the engine; each workspace's `AGENTS.md` is the config
 (a `## passdown` section declares inbox/log locations, language, and available
 executors). Nothing workspace-specific ever lives inside a skill — which is
@@ -60,6 +60,7 @@ also why the skills survive any `cwd` and any repo.
 | `passdown-intake` | Turns raw notes from an inbox (dropped there by weak capture tools like chat apps) into properly planned work in the right repo |
 | `passdown-dispatch` | Routes each task to the cheapest compatible external CLI, native subagent, or main session, then verifies the result |
 | `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, and the traps that live nowhere else |
+| `passdown-pickup` | Starts the next shift: reads the latest handoff and plan state, verifies them against the working tree, and briefs the session |
 
 **The dispatch gate.** `passdown-dispatch` is a *pre-execution gate*, not just
 another skill: before a multi-task plan is executed — by the session itself or
@@ -91,8 +92,8 @@ subagent.
 
 | Tool | Role | Status | Install / integration |
 |---|---|---|---|
-| **Claude Code** | Primary host — runs the three skills as a plugin | Supported | Plugin marketplace (`claude plugin marketplace add` / `install`) — see [Install](#install) |
-| **Codex** | Host — runs the same three skills as a native plugin; may also be an external executor from another host | Supported | Codex marketplace (`codex plugin marketplace add` / `add`) or `./install.sh --host codex` |
+| **Claude Code** | Primary host — runs the four skills as a plugin | Supported | Plugin marketplace (`claude plugin marketplace add` / `install`) — see [Install](#install) |
+| **Codex** | Host — runs the same four skills as a native plugin; may also be an external executor from another host | Supported | Codex marketplace (`codex plugin marketplace add` / `add`) or `./install.sh --host codex` |
 | **Kiro** | Secondary host — user-level skill dir, same skills | Supported | `git clone` + `./install.sh --host kiro` |
 | **Antigravity** | Dispatch executor — receives tasks from `passdown-dispatch` | Executor target, not a host | Not installed directly; configured as an executor in the consumer repo's `AGENTS.md`, invoked via the `agy` CLI |
 
@@ -123,7 +124,7 @@ Or in the desktop app: Plugins → Add marketplace → "Add from a repository".
 The plugin (and its skills) then shows up under Personal plugins, like any
 marketplace plugin.
 
-Once installed, the three skills load under the `passdown` plugin namespace.
+Once installed, the four skills load under the `passdown` plugin namespace.
 They can trigger automatically on their descriptions — best-effort, not
 guaranteed, which is why the consumer `AGENTS.md` invariant and explicit
 invocation exist — and you can invoke them directly:
@@ -131,6 +132,7 @@ invocation exist — and you can invoke them directly:
 - `/passdown:passdown-intake`
 - `/passdown:passdown-dispatch`
 - `/passdown:passdown-handoff`
+- `/passdown:passdown-pickup`
 
 **As a Codex plugin (recommended):**
 
@@ -181,7 +183,7 @@ Then add a `## passdown` section to your workspace's `AGENTS.md` (see
 ## Layout
 
 ```
-plugins/passdown/skills/   # the three skills (English, workspace-agnostic)
+plugins/passdown/skills/   # the four skills (English, workspace-agnostic)
 plugins/passdown/.codex-plugin/ # native Codex plugin manifest
 .agents/plugins/marketplace.json # native Codex marketplace
 schemas/passdown/          # OpenSpec workflow schema customizations (optional)

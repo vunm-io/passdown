@@ -52,6 +52,10 @@ reject_text "$readme" "Neither runs passdown skills directly" \
 
 require_text "$readme" "skills-only" \
   "README documents the --skills-only install mode"
+require_text "$readme" "passdown-pickup" \
+  "README lists the pickup skill"
+require_text "$readme" "skills-4" \
+  "README badge counts four skills"
 require_text "$readme" "optional" \
   "README states that the integrations are optional"
 require_text "$readme" "dispatch gate|pre-execution gate" \

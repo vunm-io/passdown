@@ -26,7 +26,7 @@ reject_text() {
   pass "$description"
 }
 
-for skill in passdown-intake passdown-dispatch passdown-handoff; do
+for skill in passdown-intake passdown-dispatch passdown-handoff passdown-pickup; do
   require_text "$skills_root/$skill/SKILL.md" \
     "root.*nearest|root.*current|root-to-nearest" \
     "$skill defines root-to-nearest configuration inheritance"
@@ -88,6 +88,20 @@ for key in "status:" "branch:" "agent:" "plan:"; do
 done
 require_text "$handoff" "host name" \
   "handoff defines where the agent identity comes from"
+
+pickup="$skills_root/passdown-pickup/SKILL.md"
+require_text "$pickup" "frontmatter" \
+  "pickup reads log frontmatter before full logs"
+require_text "$pickup" "newest" \
+  "pickup locates the most recent handoff"
+require_text "$pickup" "mismatch" \
+  "pickup verifies log claims against the working tree"
+require_text "$pickup" "never starts executing" \
+  "pickup ends with a briefing, not execution"
+require_text "$pickup" "passdown-dispatch" \
+  "pickup routes multi-task plans through the dispatch gate"
+require_text "$pickup" "[Nn]ever modify" \
+  "pickup never modifies a previous shift's log"
 
 template="$repo_root/templates/AGENTS.thin.md"
 require_text "$template" "executors: agy, subagent, main" \
