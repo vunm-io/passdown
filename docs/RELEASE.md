@@ -96,7 +96,7 @@ codex plugin marketplace add vunm-io/passdown
 codex plugin add passdown@passdown
 ```
 
-Confirm all three skills load exactly once and the installed version matches
+Confirm all four skills load exactly once and the installed version matches
 `VERSION`. Do not combine plugin and direct skill installs for the same host.
 
 ## 6. Optional marketplace submission
