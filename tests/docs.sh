@@ -101,6 +101,10 @@ diff -r "$repo_root/schemas/passdown" \
   fail "example schema copy differs from the source schema"
 pass "example schema copy is synchronized"
 
+example_log="$repo_root/examples/basic-workspace/docs/log/2026-07-05_passdown-demo.md"
+require_text "$example_log" "^status:" \
+  "example handoff log carries machine-readable frontmatter"
+
 changelog="$repo_root/CHANGELOG.md"
 while IFS= read -r heading; do
   ref="${heading#\#\# [}"

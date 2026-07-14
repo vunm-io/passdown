@@ -1,9 +1,11 @@
-# 2026-07-05 — passdown demo
+---
+status: DONE
+branch: main
+agent: main
+plan: openspec/changes/pkg-0001-demo/
+---
 
-- Agent: main
-- Status: DONE
-- Branch: main
-- Related change: `openspec/changes/pkg-0001-demo/`
+# 2026-07-05 — passdown demo
 
 ## Summary
 

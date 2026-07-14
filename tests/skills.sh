@@ -81,6 +81,13 @@ require_text "$handoff" "collision|already exists" \
   "handoff handles filename collisions"
 require_text "$handoff" "agent.*time|timestamp|HHMMSS" \
   "handoff uses an agent/time suffix"
+require_text "$handoff" "frontmatter" \
+  "handoff logs start with machine-readable frontmatter"
+for key in "status:" "branch:" "agent:" "plan:"; do
+  require_text "$handoff" "$key" "handoff frontmatter defines $key"
+done
+require_text "$handoff" "host name" \
+  "handoff defines where the agent identity comes from"
 
 template="$repo_root/templates/AGENTS.thin.md"
 require_text "$template" "executors: agy, subagent, main" \
