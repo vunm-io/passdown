@@ -44,6 +44,9 @@ jobs:
       - name: Run installer regressions
         run: ./tests/install.sh
 
+      - name: Run doctor regressions
+        run: ./tests/doctor.sh
+
       - name: Run skill contract tests
         run: ./tests/skills.sh
 

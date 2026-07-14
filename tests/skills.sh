@@ -26,7 +26,7 @@ reject_text() {
   pass "$description"
 }
 
-for skill in passdown-intake passdown-dispatch passdown-handoff; do
+for skill in passdown-intake passdown-dispatch passdown-handoff passdown-pickup; do
   require_text "$skills_root/$skill/SKILL.md" \
     "root.*nearest|root.*current|root-to-nearest" \
     "$skill defines root-to-nearest configuration inheritance"
@@ -57,6 +57,10 @@ reject_text "$dispatch" "claude-subagent" \
   "dispatch no longer exposes the Claude-specific subagent name"
 reject_text "$dispatch" "Return/relay the executor's result \*\*verbatim\*\*" \
   "dispatch no longer relays successful output verbatim"
+require_text "$dispatch" "[Mm]aterialize" \
+  "dispatch materializes routing decisions in the plan file"
+require_text "$dispatch" "Dispatched: <executor>" \
+  "dispatch records an outcome line under the task"
 
 intake="$skills_root/passdown-intake/SKILL.md"
 require_text "$intake" "planning: markdown \| openspec" \
@@ -77,6 +81,27 @@ require_text "$handoff" "collision|already exists" \
   "handoff handles filename collisions"
 require_text "$handoff" "agent.*time|timestamp|HHMMSS" \
   "handoff uses an agent/time suffix"
+require_text "$handoff" "frontmatter" \
+  "handoff logs start with machine-readable frontmatter"
+for key in "status:" "branch:" "agent:" "plan:"; do
+  require_text "$handoff" "$key" "handoff frontmatter defines $key"
+done
+require_text "$handoff" "host name" \
+  "handoff defines where the agent identity comes from"
+
+pickup="$skills_root/passdown-pickup/SKILL.md"
+require_text "$pickup" "frontmatter" \
+  "pickup reads log frontmatter before full logs"
+require_text "$pickup" "newest" \
+  "pickup locates the most recent handoff"
+require_text "$pickup" "mismatch" \
+  "pickup verifies log claims against the working tree"
+require_text "$pickup" "never starts executing" \
+  "pickup ends with a briefing, not execution"
+require_text "$pickup" "passdown-dispatch" \
+  "pickup routes multi-task plans through the dispatch gate"
+require_text "$pickup" "[Nn]ever modify" \
+  "pickup never modifies a previous shift's log"
 
 template="$repo_root/templates/AGENTS.thin.md"
 require_text "$template" "executors: agy, subagent, main" \
@@ -97,5 +122,7 @@ require_text "$plan" "Done criteria" \
   "standalone markdown tasks require done criteria"
 require_text "$plan" "Verification" \
   "standalone markdown tasks require verification"
+require_text "$plan" "Dispatched:" \
+  "standalone plan documents the dispatch outcome line"
 
 echo "1..$tests_run"

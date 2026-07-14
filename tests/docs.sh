@@ -52,6 +52,10 @@ reject_text "$readme" "Neither runs passdown skills directly" \
 
 require_text "$readme" "skills-only" \
   "README documents the --skills-only install mode"
+require_text "$readme" "passdown-pickup" \
+  "README lists the pickup skill"
+require_text "$readme" "skills-4" \
+  "README badge counts four skills"
 require_text "$readme" "optional" \
   "README states that the integrations are optional"
 require_text "$readme" "dispatch gate|pre-execution gate" \
@@ -100,5 +104,19 @@ diff -r "$repo_root/schemas/passdown" \
   "$repo_root/examples/basic-workspace/openspec/schemas/passdown" >/dev/null ||
   fail "example schema copy differs from the source schema"
 pass "example schema copy is synchronized"
+
+example_log="$repo_root/examples/basic-workspace/docs/log/2026-07-05_passdown-demo.md"
+require_text "$example_log" "^status:" \
+  "example handoff log carries machine-readable frontmatter"
+
+changelog="$repo_root/CHANGELOG.md"
+while IFS= read -r heading; do
+  ref="${heading#\#\# [}"
+  ref="${ref%%]*}"
+  esc="$(printf '%s' "$ref" | sed 's/\./\\./g')"
+  grep -Eq "^\[$esc\]: https?://" "$changelog" ||
+    fail "CHANGELOG heading [$ref] has no link reference"
+done < <(grep -E '^## \[[0-9]' "$changelog")
+pass "every CHANGELOG version heading has a link reference"
 
 echo "1..$tests_run"

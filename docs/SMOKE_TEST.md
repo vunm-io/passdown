@@ -27,13 +27,15 @@ export HOME="$(mktemp -d)"
 ./install.sh --host kiro
 ```
 
-- [ ] Each selected host contains all three real skill directories under
+- [ ] Each selected host contains all four real skill directories under
       `.claude/skills`, `.agents/skills`, or `.kiro/skills`
 - [ ] Running `./tests/install.sh` confirms `--help` is side-effect free,
       unknown args fail, nested resources copy, and stale files are removed
 - [ ] `openspec schema which passdown` resolves to
       `~/.local/share/openspec/schemas/passdown`, `Source: user`
 - [ ] `openspec schema validate passdown` prints `✓ Schema 'passdown' is valid`
+- [ ] `./scripts/doctor.sh` reports one channel per host and no out-of-sync
+      direct installs (run it against your real `HOME` after installing)
 
 ## 2. Per-repo install (self-contained, no passdown clone needed later)
 
@@ -55,10 +57,10 @@ claude plugin install passdown@passdown
 ```
 
 - [ ] Plugin shows up under Personal plugins in the desktop app / `/plugin`
-- [ ] The three skills appear in the skill list under the `passdown` plugin
+- [ ] The four skills appear in the skill list under the `passdown` plugin
       namespace — `passdown:passdown-intake`, `passdown:passdown-dispatch`,
-      `passdown:passdown-handoff` — and are invocable as
-      `/passdown:passdown-intake` etc.
+      `passdown:passdown-handoff`, `passdown:passdown-pickup` — and are
+      invocable as `/passdown:passdown-intake` etc.
 - [ ] They appear **without** also running `./install.sh` (installing both
       channels double-loads skills — pick one per tool, see README)
 - [ ] Restart the app/session, then confirm each skill triggers on its
@@ -77,7 +79,7 @@ codex plugin list
 ```
 
 - [ ] `passdown@passdown` is `installed, enabled` at the version in `VERSION`
-- [ ] A new Codex thread lists all three namespaced skills
+- [ ] A new Codex thread lists all four namespaced skills
 - [ ] No unnamespaced `passdown-*` duplicate exists in `$HOME/.agents/skills`
 - [ ] When Codex is the host, a configured `codex` executor is skipped as a
       self-target; `main` or an explicitly requested native subagent is used
@@ -101,8 +103,13 @@ schema, and a session log, so you can diff behavior instead of guessing.
       confirm it reads the `[dispatch: external-ok]` / `[dispatch: main]`
       tags and proposes routing accordingly (tasks 1.1/1.2 external, 2.1 main)
 - [ ] **passdown-handoff**: end a short session and confirm it writes
-      `docs/log/YYYY-MM-DD_<topic>_<agent>-HHMMSS.md`; repeat with the same
+      `docs/log/YYYY-MM-DD_<topic>_<agent>-HHMMSS.md` starting with
+      `status`/`branch`/`agent`/`plan` frontmatter; repeat with the same
       topic and confirm it creates another file rather than overwriting
+- [ ] **passdown-pickup**: in `examples/basic-workspace/`, run pickup and
+      confirm it reads the newest log's frontmatter, cross-checks
+      `openspec/changes/pkg-0001-demo/tasks.md`, and produces a briefing
+      without starting execution
 
 ## 6. OpenSpec schema, from scratch
 
@@ -139,7 +146,7 @@ export HOME="$(mktemp -d)"
 ./install.sh --host claude --skills-only
 ```
 
-- [ ] All three skills install; nothing exists under
+- [ ] All four skills install; nothing exists under
       `~/.local/share/openspec/`
 - [ ] With `planning: markdown` and a `plan_dir` configured, intake creates a
       plan file shaped like `templates/plan.md` (dispatch tags, Paths, Done

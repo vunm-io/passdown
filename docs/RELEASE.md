@@ -45,6 +45,7 @@ Run:
 bash -n install.sh scripts/*.sh tests/*.sh
 shellcheck install.sh scripts/*.sh tests/*.sh
 ./tests/install.sh
+./tests/doctor.sh
 ./tests/skills.sh
 ./tests/version.sh
 ./tests/release.sh
@@ -96,7 +97,7 @@ codex plugin marketplace add vunm-io/passdown
 codex plugin add passdown@passdown
 ```
 
-Confirm all three skills load exactly once and the installed version matches
+Confirm all four skills load exactly once and the installed version matches
 `VERSION`. Do not combine plugin and direct skill installs for the same host.
 
 ## 6. Optional marketplace submission

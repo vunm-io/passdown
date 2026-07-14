@@ -36,9 +36,21 @@ suggest adding it to the appropriate `AGENTS.md`.
    suffix (`-2`, `-3`, ...) and create a new file; never truncate or append to
    another session's or agent's file.
 
-2. **Write these sections** (in the configured language):
-   - **Header**: date, agent, status (`DONE` / `IN_PROGRESS` / `BLOCKED`),
-     branch, related plan/change (link if any).
+2. **Start with machine-readable frontmatter**, then the body sections (in
+   the configured language). The frontmatter is what lets the next shift — or
+   `passdown-pickup` — filter logs without reading them in full:
+
+   ```markdown
+   ---
+   status: DONE          # DONE | IN_PROGRESS | BLOCKED
+   branch: <git branch>
+   agent: <agent identity — the host name (claude|codex|kiro) unless the workspace names agents>
+   plan: <path to the plan/change this session executed, or none>
+   ---
+   ```
+
+   The `agent` value must match the `<agent>` field in the filename. Body
+   sections:
    - **Summary**: 2–5 sentences — what was worked on and the outcome.
    - **What was done**: concrete items with numbers; commit SHAs and key
      file paths (clickable).
