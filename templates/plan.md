@@ -22,3 +22,5 @@
 - Use `[dispatch: external-ok]` for mechanical, isolated, verifiable work.
 - Use `[dispatch: main]` for architecture, security, ambiguous requirements, release decisions, and final judgment.
 - Run `passdown-dispatch` before executing a multi-task plan, even when another plugin supplies its own executor.
+- `passdown-dispatch` materializes routing decisions as tags in this file and
+  appends a `- Dispatched: ...` outcome line under each task executed off-main.
