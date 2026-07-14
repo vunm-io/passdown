@@ -50,6 +50,11 @@ if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)([-+][0-
   exit 1
 fi
 
+if ! grep -q "^## \[$version\]" "$repo_root/CHANGELOG.md"; then
+  echo "ERROR: CHANGELOG.md has no section for version '$version'" >&2
+  exit 1
+fi
+
 declare -a labels=(
   "Claude marketplace metadata"
   "Claude marketplace plugin"

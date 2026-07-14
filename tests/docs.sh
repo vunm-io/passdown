@@ -101,4 +101,14 @@ diff -r "$repo_root/schemas/passdown" \
   fail "example schema copy differs from the source schema"
 pass "example schema copy is synchronized"
 
+changelog="$repo_root/CHANGELOG.md"
+while IFS= read -r heading; do
+  ref="${heading#\#\# [}"
+  ref="${ref%%]*}"
+  esc="$(printf '%s' "$ref" | sed 's/\./\\./g')"
+  grep -Eq "^\[$esc\]: https?://" "$changelog" ||
+    fail "CHANGELOG heading [$ref] has no link reference"
+done < <(grep -E '^## \[[0-9]' "$changelog")
+pass "every CHANGELOG version heading has a link reference"
+
 echo "1..$tests_run"
