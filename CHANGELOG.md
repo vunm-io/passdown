@@ -6,9 +6,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.4.0-beta.2] - 2026-07-14
-
-Beta build for the `release/v0.4.0` testing window — not a GitHub release.
+## [0.4.0] - 2026-08-15
 
 ### Added
 
@@ -29,18 +27,11 @@ Beta build for the `release/v0.4.0` testing window — not a GitHub release.
 
 ### Fixed
 
-- Added the missing `0.4.0-beta.1` link reference; the documentation contract
-  tests now require a link reference for every CHANGELOG version heading, and
-  `check-version.sh` requires a CHANGELOG section for the current version.
-
-## [0.4.0-beta.1] - 2026-07-13
-
-Beta build for the `release/v0.4.0` testing window — not a GitHub release.
-
-### Fixed
-
 - Restore the 0.1.0 changelog entries and version link references dropped by
   the v0.3.0 release commit.
+- The documentation contract tests now require a link reference for every
+  CHANGELOG version heading, and `check-version.sh` requires a CHANGELOG
+  section for the current version.
 
 ## [0.3.0] - 2026-07-13
 
@@ -116,9 +107,8 @@ Initial dogfooding snapshot.
 - OpenSpec `passdown` schema with self-contained task metadata and dispatch
   tags.
 
-[Unreleased]: https://github.com/vunm-io/passdown/compare/v0.3.0...HEAD
-[0.4.0-beta.2]: https://github.com/vunm-io/passdown/compare/v0.3.0...release/v0.4.0
-[0.4.0-beta.1]: https://github.com/vunm-io/passdown/compare/v0.3.0...release/v0.4.0
+[Unreleased]: https://github.com/vunm-io/passdown/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/vunm-io/passdown/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vunm-io/passdown/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vunm-io/passdown/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/vunm-io/passdown/releases/tag/v0.1.0
