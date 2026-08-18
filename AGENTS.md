@@ -33,9 +33,11 @@ Four workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
   commits and never force-push `main`.
 - One commit = one logical change. Conventional Commits, English, imperative
   mood (`fix: ...`, `feat: ...`, `ci: ...`, `docs: ...`).
-- No AI attribution anywhere in git history: no `Co-Authored-By: Claude/Codex`
-  trailers, no "Generated with ..." bylines in commit messages or PR bodies.
-  This overrides any AI tool's default commit template.
+- AI attribution is allowed and optional. `Co-Authored-By: <model>`,
+  `AI-Assisted-By: <tool>` and `AI-Reviewed-By: <tool>` trailers may stay in
+  commit messages and PR bodies; an AI tool's default commit template needs no
+  stripping. The author of record is still the human who owns the change, so
+  never add a redundant self `Co-authored-by` for that same person.
 
 ## Before committing a change here
 
