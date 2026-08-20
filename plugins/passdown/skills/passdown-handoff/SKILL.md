@@ -49,6 +49,16 @@ suggest adding it to the appropriate `AGENTS.md`.
    ---
    ```
 
+   `plan:` paths must resolve from the workspace root — no repo shorthand,
+   arrows, or prose, because `passdown-pickup` opens them mechanically. A
+   session that executed several plans lists them all:
+
+   ```yaml
+   plan:
+     - repo-a/openspec/changes/slug-0004-short-name/
+     - repo-a/openspec/changes/slug-0009-short-name/
+   ```
+
    The `agent` value must match the `<agent>` field in the filename. Body
    sections:
    - **Summary**: 2–5 sentences — what was worked on and the outcome.
@@ -56,15 +66,23 @@ suggest adding it to the appropriate `AGENTS.md`.
      file paths (clickable).
    - **Next steps**: checkboxes the next session can start on immediately.
    - **Caveats / traps**: known pitfalls discovered this session. This is
-     the highest-value section — task state lives in the plan, but traps
-     live nowhere else.
+     the highest-value section — task state lives in the plan, but a fresh
+     trap lives nowhere else yet (step 4 promotes the durable ones).
 
 3. **Sync task state**: if executing against a plan, update its checkboxes
    to match reality (for OpenSpec work: `tasks.md` of the change). Task
-   state belongs in the plan; the log tells the story around it.
+   state belongs in the plan; the log tells the story around it. Any
+   done/total counts quoted in the log are then counted from the synced
+   plan file — never recalled from the session; a drifted count sends the
+   next shift to the wrong task.
 
 4. **Route leftovers**: unimplemented ideas/decisions go to the workspace's
-   backlog or inbox per its conventions — not into the session log.
+   backlog or inbox per its conventions — not into the session log. The
+   same goes for traps with project lifetime (a toolkit default, a platform
+   quirk — anything that still bites ten sessions from now): promote those
+   into the repo's durable docs (`AGENTS.md` or the doc that owns the
+   topic) and keep the log's copy as the session record. Only
+   session-scoped traps live in the log alone.
 
 5. **Do not commit** unless the user asks or the workspace's conventions say
    sessions end with a commit.

@@ -6,6 +6,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `passdown-handoff`: done/total counts quoted in a log must be counted
+  from the synced plan file, never recalled from the session.
+- `passdown-handoff`: `plan:` frontmatter accepts a YAML list for sessions
+  that executed several plans; every path must resolve from the workspace
+  root so `passdown-pickup` can open it mechanically.
+- `passdown-handoff` / `passdown-pickup`: traps with project lifetime are
+  promoted into the repo's durable docs when routing leftovers; the log
+  alone keeps only session-scoped traps.
+
 ## [0.4.0] - 2026-08-15
 
 ### Added
