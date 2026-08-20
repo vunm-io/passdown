@@ -39,13 +39,14 @@ it to the appropriate `AGENTS.md`.
    first, full text only for the logs that matter — that is what keeps pickup
    cheap.
 2. **Read the passdown**: for the relevant log(s), read Summary, Next steps,
-   and especially Caveats / traps in full. Task state lives in the plan, but
-   traps live nowhere else.
+   and especially Caveats / traps in full. Task state lives in the plan;
+   session-scoped traps live nowhere but the log.
 3. **Verify against reality** — files may have moved on since the log was
    written:
    - the current branch vs the log's `branch:`;
    - `git status` and recent commits vs the log's "What was done";
-   - the plan named in `plan:` — compare its checkboxes and any
+   - each plan listed in `plan:` (a single path or a YAML list, resolved
+     from the workspace root) — compare its checkboxes and any
      `Dispatched:` outcome lines against the log's next steps.
    Report any mismatch instead of silently reconciling it; the working tree
    and the plan win over the log.
