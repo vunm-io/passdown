@@ -23,4 +23,10 @@
 - Use `[dispatch: main]` for architecture, security, ambiguous requirements, release decisions, and final judgment.
 - Run `passdown-dispatch` before executing a multi-task plan, even when another plugin supplies its own executor.
 - `passdown-dispatch` materializes routing decisions as tags in this file and
-  appends a `- Dispatched: ...` outcome line under each task executed off-main.
+  appends a `- Dispatched: ...` outcome line under each task executed off-main,
+  e.g. `- Dispatched: agy (2026-09-21) — accepted; verified: npm test`.
+- Completion authority: a delegated worker (external CLI or native subagent)
+  never ticks a checkbox or edits this file. The host ticks a delegated task
+  `[x]` only after its own verification passes and it records `accepted` in
+  the `Dispatched:` line. Tasks done in the current session (`main`) are
+  marked complete as you go, after their verification passes.

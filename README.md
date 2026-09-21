@@ -73,6 +73,14 @@ authorization. The consumer `AGENTS.md` template
 ([`templates/AGENTS.thin.md`](templates/AGENTS.thin.md)) states this invariant
 so it holds in every workspace.
 
+**Completion authority.** A delegated worker — an external CLI or a native
+subagent — never accepts its own work. It receives one exact task, returns
+its result, and leaves the plan file alone; only the host ticks the task,
+after its own verification, and records `accepted` in the task's
+`Dispatched:` line. Handoff never ticks unverified delegated work, and pickup
+flags a delegated `[x]` that has no host verdict. Tasks the current session
+does itself still mark complete as they go.
+
 **Planning is pluggable.** Plans can be plain markdown files (see
 [`templates/plan.md`](templates/plan.md)) with `[dispatch: external-ok]` /
 `[dispatch: main]` tags, or [OpenSpec](https://github.com/Fission-AI/openspec)

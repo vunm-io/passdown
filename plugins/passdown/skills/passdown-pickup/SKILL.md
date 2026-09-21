@@ -48,8 +48,23 @@ it to the appropriate `AGENTS.md`.
    - each plan listed in `plan:` (a single path or a YAML list, resolved
      from the workspace root) — compare its checkboxes and any
      `Dispatched:` outcome lines against the log's next steps.
+   - **completion authority** in each plan: a delegated worker cannot
+     accept its own work (see `passdown-dispatch`), so check every `[x]`
+     task that shows signs of delegation:
+     - `[x]` with a `Dispatched:` line whose latest outcome is not
+       `accepted`, or that names no check the host ran after `verified:` —
+       **inconsistent**: the checkbox claims completion the host never
+       recorded. Lines written before the `accepted` wording existed count
+       as accepted only when they report success and name a host check.
+     - `[x]` on a `[dispatch: external-ok]` task with no `Dispatched:` line
+       at all — **unconfirmed**: nothing records who did it or whether it
+       was verified.
+     Report each such task by plan path and task ID, and treat it as not
+     accepted — still pending verification — in the briefing and the
+     proposed first action.
    Report any mismatch instead of silently reconciling it; the working tree
-   and the plan win over the log.
+   and the plan win over the log, and an inconsistent `[x]` does not win
+   over the missing host verdict.
 4. **Brief, then wait**: report status, verified next steps, and the traps.
    Pickup produces a briefing and a proposed first action — it
    never starts executing on its own. If the proposed work is a multi-task
@@ -59,6 +74,8 @@ it to the appropriate `AGENTS.md`.
 
 - An empty or missing `log_dir` is a fact to report, not an error to fix:
   say so and brief from plan/task state alone.
+- Pickup does not fix an inconsistent `[x]` itself; the host that verifies
+  the task (or unticks it) records the verdict, per `passdown-dispatch`.
 - Never modify a previous shift's log. Corrections and discoveries belong in
   this session's own handoff or the workspace inbox.
 - An `IN_PROGRESS` or `BLOCKED` log from another agent may mean that shift is

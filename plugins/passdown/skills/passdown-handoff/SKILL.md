@@ -70,8 +70,19 @@ suggest adding it to the appropriate `AGENTS.md`.
      trap lives nowhere else yet (step 4 promotes the durable ones).
 
 3. **Sync task state**: if executing against a plan, update its checkboxes
-   to match reality (for OpenSpec work: `tasks.md` of the change). Task
-   state belongs in the plan; the log tells the story around it. Any
+   to match reality (for OpenSpec work: `tasks.md` of the change). Reality
+   means accepted work, not claimed work:
+   - a task this session did itself (`main`) is `[x]` once its
+     verification passed;
+   - a delegated task is `[x]` only when its latest `Dispatched:` line
+     records `accepted` with a check the host ran. Never tick a delegated
+     task because the worker reported success, because its files exist, or
+     because the worker ticked the box itself;
+   - delegated work that is still unverified goes back to (or stays) `[ ]`,
+     and the log's Caveats / traps names it as unverified so the next shift
+     verifies it before building on it.
+
+   Task state belongs in the plan; the log tells the story around it. Any
    done/total counts quoted in the log are then counted from the synced
    plan file — never recalled from the session; a drifted count sends the
    next shift to the wrong task.

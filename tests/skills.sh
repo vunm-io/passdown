@@ -62,6 +62,33 @@ require_text "$dispatch" "[Mm]aterialize" \
 require_text "$dispatch" "Dispatched: <executor>" \
   "dispatch records an outcome line under the task"
 
+# Completion authority (PDN-0003): a delegated worker never accepts its own
+# work; only the accepting host records canonical completion.
+require_text "$dispatch" "^## Completion authority" \
+  "dispatch defines a completion-authority section"
+require_text_block "$dispatch" "worker never accepts its own work" \
+  "dispatch states that a delegated worker never accepts its own work"
+require_text_block "$dispatch" "native subagent.*delegated worker|delegated worker.*native subagent" \
+  "dispatch treats native subagents as delegated workers too"
+require_text_block "$dispatch" "Do not edit .*checkbox|must not (edit|mutate|tick).*checkbox" \
+  "dispatch forbids delegated workers from editing plan checkboxes"
+require_text_block "$dispatch" "exact task +reference" \
+  "dispatch assigns external work by exact task reference"
+reject_text "$dispatch" "next pending task" \
+  "dispatch no longer lets a worker pick the next pending task"
+reject_text "$dispatch" "mark it \\[x\\]" \
+  "dispatch no longer tells a worker to mark its task [x]"
+reject_text "$dispatch" "how to record completion" \
+  "dispatch no longer asks the worker to record completion"
+require_text_block "$dispatch" "restore .*from the baseline" \
+  "dispatch restores worker edits to plan authority fields"
+require_text_block "$dispatch" "Dispatched: <executor> \\(<YYYY-MM-DD>\\) — accepted" \
+  "dispatch outcome line records host acceptance"
+require_text_block "$dispatch" "keep a +\`\\[dispatch: external-ok\\]\` +task in the current session, change its tag" \
+  "dispatch retags an external-ok task that stays in main"
+require_text_block "$dispatch" "same actor.*mark.*complete as you go|mark.*complete as you go.*same actor" \
+  "dispatch keeps mark-as-you-go for main, where host and worker are the same actor"
+
 intake="$skills_root/passdown-intake/SKILL.md"
 require_text "$intake" "planning: markdown \| openspec" \
   "intake supports both markdown and openspec planning"
@@ -89,6 +116,13 @@ done
 require_text "$handoff" "host name" \
   "handoff defines where the agent identity comes from"
 
+require_text_block "$handoff" "[Nn]ever tick a delegated +task" \
+  "handoff never ticks a delegated task on the worker's report"
+require_text_block "$handoff" "accepted.*Dispatched:|Dispatched:.*accepted" \
+  "handoff ticks delegated tasks only with a host acceptance line"
+require_text_block "$handoff" "unverified.*\\[ \\]|\\[ \\].*unverified" \
+  "handoff returns unverified delegated completion to [ ]"
+
 pickup="$skills_root/passdown-pickup/SKILL.md"
 require_text "$pickup" "frontmatter" \
   "pickup reads log frontmatter before full logs"
@@ -102,6 +136,26 @@ require_text "$pickup" "passdown-dispatch" \
   "pickup routes multi-task plans through the dispatch gate"
 require_text "$pickup" "[Nn]ever modify" \
   "pickup never modifies a previous shift's log"
+
+require_text_block "$pickup" "[Ii]nconsistent" \
+  "pickup flags inconsistent dispatched completion"
+require_text_block "$pickup" "\\[x\\].*Dispatched:.*accepted|\\[x\\].*accepted.*Dispatched:" \
+  "pickup checks a dispatched [x] against a host acceptance line"
+require_text_block "$pickup" "not accepted|still pending|as pending" \
+  "pickup treats unverified delegated completion as not accepted"
+
+schema="$repo_root/schemas/passdown/schema.yaml"
+apply_instruction="$(sed -n '/^apply:/,$p' "$schema")"
+grep -q "assigned" <<<"$apply_instruction" ||
+  fail "schema apply.instruction addresses delegated workers"
+pass "schema apply.instruction addresses delegated workers"
+grep -Eq "Do not edit tasks\.md" <<<"$apply_instruction" ||
+  fail "schema apply.instruction forbids delegated tasks.md edits"
+pass "schema apply.instruction forbids delegated tasks.md edits"
+if grep -Eq "^    Read context files, work through pending tasks, mark complete as you go\.$" <<<"$apply_instruction"; then
+  fail "schema apply.instruction no longer grants unconditional mark-as-you-go"
+fi
+pass "schema apply.instruction no longer grants unconditional mark-as-you-go"
 
 template="$repo_root/templates/AGENTS.thin.md"
 require_text "$template" "executors: agy, subagent, main" \
@@ -124,5 +178,10 @@ require_text "$plan" "Verification" \
   "standalone markdown tasks require verification"
 require_text "$plan" "Dispatched:" \
   "standalone plan documents the dispatch outcome line"
+
+require_text_block "$plan" "Dispatched:.*accepted" \
+  "standalone plan shows the host acceptance outcome"
+require_text_block "$plan" "delegated worker.*never|never.*delegated worker" \
+  "standalone plan states that delegated workers never tick tasks"
 
 echo "1..$tests_run"
