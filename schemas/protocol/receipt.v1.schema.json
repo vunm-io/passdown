@@ -598,9 +598,9 @@
       "then": { "properties": { "verdict": { "properties": { "reason_code": { "enum": ["blocked", "stale", "cancelled", "plan_tampered", "scope_violation"] } } } } }
     },
     {
-      "$comment": "abandon applies only to an attempt that was never launched (section 10.3).",
+      "$comment": "abandon applies only to an attempt that was never armed: not-launched, or owner-attested when its location already shows writes (sections 10.3, 13.2 C1).",
       "if": { "properties": { "verdict": { "properties": { "reason_code": { "const": "abandoned" } } } } },
-      "then": { "properties": { "execution": { "properties": { "stop_evidence": { "enum": ["not-launched", null] } } } } }
+      "then": { "properties": { "execution": { "properties": { "stop_evidence": { "enum": ["not-launched", "owner-attested", null] } } } } }
     },
     {
       "$comment": "reemit_wrote applies only to a re-emit; invalid_result requires an invalid or missing result.",
