@@ -753,6 +753,52 @@ group_digests() {
   pass "baseline dirt is excluded unless the attempt changes it (overlaps_baseline)"
 }
 
+group_plan_freshness() {
+  local repo="$scratch/plan-freshness"
+  new_repo "$repo"
+  store="$repo/.git/passdown/attempts"
+  new_write "$repo"
+  drive "$id" "echo hello > '$repo/src/hello.txt'"
+  ok result --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
+  ok inspect --store "$store" inspect "$id" --rev "$(rev "$id")"
+  tick_plan "$repo" 1.1 "$id"
+  run 3 "checkbox changed after inspection" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  [ "$(field "$id" .verdict.acceptance)" = pending ] || fail "stale plan inspection accepted"
+  [ "$(field "$id" .claim.state)" = held ] || fail "claim released on stale plan inspection"
+  git -C "$repo" checkout -q -- docs/plan.md
+  ok "accept after restoring plan" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  pass "accept rechecks plan integrity after the last inspection"
+}
+
+group_symlinks() {
+  local repo="$scratch/symlinks" before after expected target
+  new_repo "$repo"
+  printf 'same bytes\n' >"$repo/src/a"
+  printf 'same bytes\n' >"$repo/src/b"
+  git -C "$repo" add src/a src/b
+  git -C "$repo" commit -q -m targets
+  store="$repo/.git/passdown/attempts"
+  new_write "$repo"
+  drive "$id" "ln -s a '$repo/src/link'"
+  ok result --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
+  ok inspect --store "$store" inspect "$id" --rev "$(rev "$id")"
+  before="$(field "$id" .artifact.digest)"
+  rm "$repo/src/link"
+  ln -s b "$repo/src/link"
+  after="$("$helper" --store "$store" digest artifact "$id")"
+  [ "$before" != "$after" ] || fail "symlink target changed but artifact digest did not"
+  run 3 "retargeted symlink after inspection" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  # A dangling link is a valid Git artifact; preserve trailing newlines in
+  # its target and hash the link bytes, never the referent's contents.
+  rm "$repo/src/link"
+  target=$'missing\n'
+  ln -s "$target" "$repo/src/link"
+  expected="$(printf '%s' "$target" | git hash-object --stdin)"
+  ok "digest dangling symlink" --store "$store" --json digest artifact "$id"
+  [ "$(jq -r '.entries[] | select(.path == "src/link") | .hash' <<<"$out")" = "$expected" ] || fail "symlink bytes were not preserved"
+  pass "artifact hashes symlink bytes and rejects retargeting after inspection"
+}
+
 group_list() {
   local repo="$scratch/list" a b
   new_repo "$repo"
@@ -793,7 +839,7 @@ group_list() {
   pass "validate reports a held projection the claim file does not back"
 }
 
-groups="conformance lifecycle transitions acceptance claims chains crash races digests list"
+groups="conformance lifecycle transitions acceptance claims chains crash races digests plan_freshness symlinks list"
 selected="${*:-$groups}"
 for g in $selected; do
   case " $groups " in *" $g "*) "group_$g" ;; *) fail "unknown group $g" ;; esac

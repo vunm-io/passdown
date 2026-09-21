@@ -605,7 +605,15 @@ cap() { card_value "$1" "capabilities.$2" unverified; }
 # ---------------------------------------------------------------- artifacts
 
 file_hash() { # <dir> <relative path>
-  if [ -d "$1/$2" ] && [ ! -L "$1/$2" ]; then
+  if [ -L "$1/$2" ]; then
+    # Git stores the link target itself, including any trailing newlines.
+    # -n disables readlink's output delimiter on both BSD and GNU tools;
+    # the sentinel protects target newlines from command substitution.
+    local target
+    target="$(readlink -n "$1/$2" && printf '.')" || return 1
+    target="${target%.}"
+    printf '%s' "$target" | git -C "$1" hash-object --stdin
+  elif [ -d "$1/$2" ]; then
     printf 'dir:%s\n' "$(git -C "$1/$2" rev-parse HEAD 2>/dev/null || echo none)"
   elif [ -e "$1/$2" ] || [ -L "$1/$2" ]; then
     git -C "$1" hash-object -- "$2"
@@ -1770,6 +1778,8 @@ verdict_accept() {
   art="$(compute_artifact "$id")"
   [ "$(jq -r .digest <<<"$art")" = "$(jq -r .artifact.digest <<<"$r")" ] ||
     die $E_STATE "accept: the artifact changed after the last inspection; inspect again"
+  [ "$(jq -r .plan_touched <<<"$art")" = "$(jq -r .artifact.plan_touched <<<"$r")" ] ||
+    die $E_STATE "accept: the plan changed after the last inspection; inspect again"
   settle="$(card_value "$id" stop.settle_seconds 0)"
   [[ "$settle" =~ ^[0-9]+$ ]] || settle=0
   if [ "$settle" -gt 0 ]; then
