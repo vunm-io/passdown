@@ -7,6 +7,9 @@
 #
 # PASSDOWN_STRESS_ROUNDS (default 10) sets the rounds of the concurrent-new
 # race; CI's stress job runs 50.
+#
+# `[ a ] && [ b ] || fail` means "unless both hold, fail" throughout.
+# shellcheck disable=SC2015
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
