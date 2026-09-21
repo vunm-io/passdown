@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# fake-executor — a test-only worker for the v0.5 interruption harness
+# (tests/interrupt.sh). Never shipped. It behaves like a delegated worker in
+# one of several modes, journals every write it makes outside the plan with
+# timestamps and its attempt ID, and prints its passdown.result/v1 payload
+# as the last line of stdout, where the reference host extracts it.
+#
+#   fake-executor <mode>
+#
+# Environment (set by tests/harness/ref-host):
+#   PASSDOWN_ATTEMPT  attempt ID (the host exports it into every worker)
+#   FAKE_JOURNAL      append-only write journal, outside the fixture repo
+#   FAKE_PLAN         plan path relative to the working directory
+#   FAKE_TASK         task id
+#   FAKE_TARGET       target repository (read-but-writes without confinement)
+#   FAKE_HELPER       passdown-attempt (dispatch-external mode)
+#   FAKE_DELAY        seconds to wait before the first write (default 0.3)
+# Journals: FAKE_JOURNAL gets "<t1> <t2> <attempt> <location> <path>" per
+# write; FAKE_JOURNAL.life gets "begin <pid> <t> <attempt> <location>" and
+# "end <pid> <t>" per process.
+# The working directory is the attempt location.
+set -euo pipefail
+
+mode="${1:?mode}"
+attempt="${PASSDOWN_ATTEMPT:?PASSDOWN_ATTEMPT is not set}"
+journal="${FAKE_JOURNAL:?FAKE_JOURNAL is not set}"
+plan="${FAKE_PLAN:-docs/plan.md}"
+task="${FAKE_TASK:-1.1}"
+delay="${FAKE_DELAY:-0.3}"
+
+now() { perl -MTime::HiRes=time -e 'printf "%.3f\n", time'; }
+
+# jwrite <path> <content>: one journaled write. The interval covers the
+# whole write, so overlapping writers show up as overlapping intervals.
+jwrite() {
+  local path="$1" content="$2" t1 t2
+  t1="$(now)"
+  mkdir -p "$(dirname "$path")"
+  printf '%s\n' "$content" >"$path"
+  sleep 0.05
+  t2="$(now)"
+  printf '%s %s %s %s %s\n' "$t1" "$t2" "$attempt" "$(pwd -P)" "$path" >>"$journal"
+}
+
+result() { # result <disposition> [jq filter for extra members]
+  jq -n -c --arg a "$attempt" --arg d "$1" \
+    '{schema: "passdown.result/v1", attempt: $a, disposition: $d, summary: "fake executor, mode '"$mode"'",
+      changed_paths: [], evidence: []}'"${2:+ | $2}"
+}
+
+tick_own_box() {
+  perl -pi -e "s/^(\\s*)- \\[ \\] $task /\$1- [x] $task /" "$plan"
+}
+
+# Lifetime journal: a writer "exists" from begin to end, whatever it writes.
+# A process killed with KILL never logs its end; the harness closes it.
+life="$journal.life"
+printf 'begin %s %s %s %s\n' "$$" "$(now)" "$attempt" "$(pwd -P)" >>"$life"
+trap 'printf "end %s %s\n" "$$" "$(now)" >>"$life"' EXIT
+
+sleep "$delay"
+case "$mode" in
+  ok)
+    jwrite src/hello.txt hello
+    result submitted '.changed_paths = [{path: "src/hello.txt", change: "added"}]'
+    ;;
+  ok-no-write)
+    result submitted
+    ;;
+  write-outside-scope)
+    jwrite src/hello.txt hello
+    jwrite README.md "not in scope"
+    result submitted
+    ;;
+  tick-checkbox)
+    jwrite src/hello.txt hello
+    tick_own_box
+    result submitted
+    ;;
+  forge-accepted)
+    jwrite src/hello.txt hello
+    tick_own_box
+    perl -pi -e "s/^(\\s*)- \\[x\\] $task (.*)\$/\$1- [x] $task \$2\\n\$1  - Dispatched: fake (2026-09-21) — accepted; verified: grep; attempt: $attempt/" "$plan"
+    result submitted
+    ;;
+  edit-criteria)
+    jwrite src/hello.txt hello
+    perl -pi -e 's/src\/hello.txt says hello/src\/hello.txt exists/' "$plan"
+    result submitted
+    ;;
+  malformed-result)
+    jwrite src/hello.txt hello
+    printf '{"schema": "passdown.result/v1", "attempt": "%s", "disposition": "submitted"\n' "$attempt"
+    ;;
+  no-result)
+    jwrite src/hello.txt hello
+    ;;
+  needs-input)
+    result needs_input '.question = {text: "Which greeting: hello or hi?", options: ["hello", "hi"]}'
+    ;;
+  blocked-env)
+    result blocked '.blocker = {kind: "sandbox", message: "open /home/test/.gradle/caches: operation not permitted"}'
+    ;;
+  hang)
+    # Ignores the cancellation signal the card names, like a stuck CLI.
+    trap '' INT
+    jwrite src/hello.txt hello
+    sleep 30
+    result submitted
+    ;;
+  spawn-detached-writer)
+    jwrite src/hello.txt hello
+    # The child leaves the process group and keeps writing after the parent
+    # exits: the case only a scope, or the owner, can rule out.
+    perl -e 'setpgrp(0, 0); exec @ARGV' sh -c "sleep ${FAKE_DETACHED_DELAY:-0.8}; FAKE_DELAY=0 '$0' detached-write" \
+      </dev/null >/dev/null 2>&1 &
+    result submitted
+    ;;
+  detached-write)
+    jwrite src/late.txt "written after the parent exited"
+    ;;
+  write-then-sleep)
+    jwrite src/hello.txt "hello again"
+    sleep "${FAKE_SLEEP:-1}"
+    jwrite src/more.txt more
+    result submitted
+    ;;
+  read-but-writes)
+    if [ -n "${FAKE_TARGET:-}" ]; then
+      (cd "$FAKE_TARGET" && jwrite src/review-notes.txt "a read attempt wrote this")
+    else
+      jwrite src/review-notes.txt "a read attempt wrote this"
+    fi
+    result submitted
+    ;;
+  dispatch-external)
+    code=0
+    "${FAKE_HELPER:?}" new --task-ref "$plan#$task" --kind write --tier external --reason-code quota \
+      --reason "nested" --executor other --host fake --place-repo . --isolation current-checkout \
+      >/dev/null 2>&1 || code=$?
+    printf '%s %s %s %s depth-guard-exit=%s\n' "$(now)" "$(now)" "$attempt" "$(pwd -P)" "$code" >>"$journal.events"
+    result submitted
+    ;;
+  *)
+    echo "fake-executor: unknown mode $mode" >&2
+    exit 2
+    ;;
+esac
