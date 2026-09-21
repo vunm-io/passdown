@@ -1,5 +1,4 @@
-# Shell scripts must keep LF endings on every platform (Windows CI runs them
-# under Git Bash).
-*.sh text eol=lf
-scripts/passdown-attempt text eol=lf
-plugins/passdown/skills/*/scripts/passdown-attempt text eol=lf
+# Check every text file out with LF endings on every platform: Windows CI
+# runs the shell scripts under Git Bash, and the fixture manifest, golden
+# digests and plans are compared byte for byte.
+* text=auto eol=lf
