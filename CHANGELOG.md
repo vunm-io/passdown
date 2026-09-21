@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0-beta.1] - 2026-09-21
+
+Beta build for the `release/v0.5.0` testing window — not a GitHub release.
+
 ### Fixed
 
 - Delegated completion authority (PDN-0003): a delegated worker — external
@@ -148,6 +152,7 @@ Initial dogfooding snapshot.
   tags.
 
 [Unreleased]: https://github.com/vunm-io/passdown/compare/v0.4.0...HEAD
+[0.5.0-beta.1]: https://github.com/vunm-io/passdown/compare/v0.4.0...release/v0.5.0
 [0.4.0]: https://github.com/vunm-io/passdown/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vunm-io/passdown/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/vunm-io/passdown/compare/v0.1.0...v0.2.0
