@@ -1002,6 +1002,14 @@ protocol above; each one makes a rule concrete.
   projection `held` (§10.4 table), and pickup shows it as C1: the host
   abandons it. It is not reclaimed automatically; the C11 row below is
   worded accordingly.
+- **Windows (Git Bash).** Git Bash rewrites every argument that looks like a
+  POSIX path before a native program sees it. `git.exe` needs that, but
+  `jq.exe` must receive values such as `--arg p /holder` verbatim. The helper
+  therefore wraps `jq`. For jq alone it turns the conversion off, converts
+  exactly the arguments jq opens as files with `cygpath`, and passes `-b`,
+  because `jq.exe`'s text-mode output turns `\n` into `\r\n` and would change
+  every digest. That flag needs jq ≥ 1.7 on Windows. The repository checks
+  every text file out with LF (`.gitattributes`).
 - **Test hook.** `PASSDOWN_TEST_CRASH_AT=<point>` kills the helper at a named
   claim sub-step (F23). It has no other effect.
 
