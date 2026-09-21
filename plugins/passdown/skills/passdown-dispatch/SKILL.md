@@ -110,6 +110,14 @@ It must not edit plan checkboxes, `Dispatched:` lines, done criteria or
 verification. If it finds a problem with those fields, it reports the finding
 and the host decides.
 
+**Accepted verdict.** A delegated task counts as accepted when its latest
+`Dispatched:` line records `accepted` and names, after `verified:`, a check
+the host ran. Lines written before the `accepted` wording existed count as
+accepted when they report success and name a host check after `verified:`
+(for example `— done; verified: npm test`), so upgrading passdown does not
+reopen work that was already verified. Handoff and pickup apply this same
+rule; anything else is not accepted.
+
 For `main` tasks the host and the worker are the same actor, so the current
 session keeps the usual flow: run the task's verification, then mark it
 complete as you go. No `Dispatched:` line is needed.
@@ -150,9 +158,15 @@ When sending a task to an external executor:
    evidence, and remaining work. Preserve sandbox, permission, and network
    environment errors verbatim; summarize successful intermediate output.
 7. **Verify before trusting**: first compare the plan file against the
-   baseline. If the worker changed a checkbox, a `Dispatched:` line, done
-   criteria or verification anyway, restore those lines from the baseline
-   and note it in the outcome line. A worker's `[x]` is never evidence.
+   baseline. A worker's `[x]` is never evidence. If a checkbox, a
+   `Dispatched:` line, done criteria or verification changed since the
+   baseline, restore it from the baseline only when the change is
+   unambiguously the worker's — for example, nobody else could have edited
+   the plan during the dispatch, or the worker's report shows the edit —
+   and note the restore in the outcome line. If you cannot attribute the
+   change safely (the user or another session may have edited the plan
+   meanwhile), do not overwrite it and do not record a verdict: stop and
+   report the conflict so the user can reconcile it.
    Then run the task's done criteria yourself (tests, `openspec status`,
    file checks). An unverified task stays unchecked. After a failed
    dispatch, compare against the baseline and remove only paths proven

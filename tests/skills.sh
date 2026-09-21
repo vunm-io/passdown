@@ -86,6 +86,12 @@ require_text_block "$dispatch" "Dispatched: <executor> \\(<YYYY-MM-DD>\\) — ac
   "dispatch outcome line records host acceptance"
 require_text_block "$dispatch" "keep a +\`\\[dispatch: external-ok\\]\` +task in the current session, change its tag" \
   "dispatch retags an external-ok task that stays in main"
+require_text_block "$dispatch" "restore it from the +baseline only when the change is +unambiguously the worker's" \
+  "dispatch restores only authority-field edits attributable to the worker"
+require_text_block "$dispatch" "cannot attribute the +change safely.*do not overwrite it" \
+  "dispatch stops instead of overwriting unattributable plan edits"
+require_text_block "$dispatch" "^.*Accepted verdict" \
+  "dispatch defines the accepted-verdict rule"
 require_text_block "$dispatch" "same actor.*mark.*complete as you go|mark.*complete as you go.*same actor" \
   "dispatch keeps mark-as-you-go for main, where host and worker are the same actor"
 
@@ -122,6 +128,16 @@ require_text_block "$handoff" "accepted.*Dispatched:|Dispatched:.*accepted" \
   "handoff ticks delegated tasks only with a host acceptance line"
 require_text_block "$handoff" "unverified.*\\[ \\]|\\[ \\].*unverified" \
   "handoff returns unverified delegated completion to [ ]"
+
+# One accepted-verdict rule across dispatch, handoff and pickup, including
+# legacy success lines written before the `accepted` wording (PDN-0003 review).
+for skill in passdown-dispatch passdown-handoff passdown-pickup; do
+  require_text_block "$skills_root/$skill/SKILL.md" \
+    "written before the +\`accepted\` +wording +existed count as +accepted when +they report success and name a host +check after +\`verified:\`" \
+    "$skill accepts legacy success lines that name a host check"
+done
+reject_text "$handoff" "records +\`accepted\` with a check the host ran\. Never" \
+  "handoff no longer requires the literal accepted word for legacy lines"
 
 pickup="$skills_root/passdown-pickup/SKILL.md"
 require_text "$pickup" "frontmatter" \

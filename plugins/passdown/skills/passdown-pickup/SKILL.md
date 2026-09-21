@@ -51,11 +51,12 @@ it to the appropriate `AGENTS.md`.
    - **completion authority** in each plan: a delegated worker cannot
      accept its own work (see `passdown-dispatch`), so check every `[x]`
      task that shows signs of delegation:
-     - `[x]` with a `Dispatched:` line whose latest outcome is not
-       `accepted`, or that names no check the host ran after `verified:` —
-       **inconsistent**: the checkbox claims completion the host never
-       recorded. Lines written before the `accepted` wording existed count
-       as accepted only when they report success and name a host check.
+     - `[x]` whose latest `Dispatched:` line is not an accepted verdict
+       as `passdown-dispatch` defines it — **inconsistent**: the checkbox
+       claims completion the host never recorded. An accepted verdict
+       records `accepted` and names a host check after `verified:`. Lines
+       written before the `accepted` wording existed count as accepted when
+       they report success and name a host check after `verified:`.
      - `[x]` on a `[dispatch: external-ok]` task with no `Dispatched:` line
        at all — **unconfirmed**: nothing records who did it or whether it
        was verified.

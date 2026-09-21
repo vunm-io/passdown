@@ -74,8 +74,11 @@ suggest adding it to the appropriate `AGENTS.md`.
    means accepted work, not claimed work:
    - a task this session did itself (`main`) is `[x]` once its
      verification passed;
-   - a delegated task is `[x]` only when its latest `Dispatched:` line
-     records `accepted` with a check the host ran. Never tick a delegated
+   - a delegated task is `[x]` only when its latest `Dispatched:` line is
+     an accepted verdict as `passdown-dispatch` defines it: `accepted`
+     with a check the host ran. Lines written before the `accepted` wording
+     existed count as accepted when they report success and name a host
+     check after `verified:` — keep those `[x]`. Never tick a delegated
      task because the worker reported success, because its files exist, or
      because the worker ticked the box itself;
    - delegated work that is still unverified goes back to (or stays) `[ ]`,
