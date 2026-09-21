@@ -54,6 +54,7 @@
     "provider_session": null,
     "runner": null,
     "containment": "scope",
+    "scope": "/sys/fs/cgroup/user.slice/passdown-pd-20260921T101530Z-3f9a1c2e",
     "parent_exited_at": null
   },
   "claim": {

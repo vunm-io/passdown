@@ -54,6 +54,7 @@
     "provider_session": "sess-7f2c",
     "runner": null,
     "containment": null,
+    "scope": null,
     "parent_exited_at": null
   },
   "claim": {

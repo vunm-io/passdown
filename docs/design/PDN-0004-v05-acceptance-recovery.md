@@ -422,6 +422,8 @@ its semantics:
   `snapshot+sandbox`, read attempts only). `claim` is `null` exactly for a
   read attempt with a guard.
 - `execution.attested_by` records who attested an `owner-attested` stop.
+- `handle.scope` names the containment scope (an absolute cgroup v2
+  directory) when `containment = scope`, so `probe` can check it is empty.
 - `artifact.inspections[]` keeps every `inspect` (time + digest) for the
   settle check (§12.3 rule 4); `artifact.overlaps_baseline[]` lists
   pre-existing dirty paths the attempt changed (§12.2);

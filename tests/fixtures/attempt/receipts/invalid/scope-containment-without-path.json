@@ -1,7 +1,7 @@
 {
   "schema": "passdown.receipt/v1",
   "id": "pd-20260921T101530Z-3f9a1c2e",
-  "rev": 2,
+  "rev": 5,
   "kind": "write",
   "continues": null,
   "chain_root": "pd-20260921T101530Z-3f9a1c2e",
@@ -48,16 +48,17 @@
     "mutation_guard": null
   },
   "handle": {
-    "pid": null,
-    "pid_started": null,
-    "pgid": null,
+    "pid": 48211,
+    "pid_started": "Mon Sep 21 10:15:31 2026",
+    "pgid": 48211,
     "provider_session": null,
     "runner": null,
-    "containment": null,
+    "containment": "scope",
+    "scope": null,
     "parent_exited_at": null
   },
   "claim": {
-    "namespace": "/elsewhere/.git/passdown/claims",
+    "namespace": "/work/target/.git/passdown/claims",
     "key": "repo",
     "state": "held",
     "acquired_at": "2026-09-21T10:15:30Z",
@@ -66,11 +67,14 @@
     "release_basis": null
   },
   "execution": {
-    "observation": "prepared",
-    "observed_at": "2026-09-21T10:15:30Z",
-    "stop_evidence": null,
+    "observation": "stopped",
+    "observed_at": "2026-09-21T10:31:02Z",
+    "stop_evidence": "exit+scope-empty",
     "attested_by": null,
-    "exit": null,
+    "exit": {
+      "code": 0,
+      "signal": null
+    },
     "cancel_requested_at": null,
     "cancel_method": null,
     "reconciled_at": null
@@ -83,7 +87,7 @@
     "source": null
   },
   "artifact": {
-    "at_arm": null,
+    "at_arm": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
     "digest": null,
     "expected": null,
     "changed": null,
@@ -122,6 +126,30 @@
       "to": "held",
       "at": "2026-09-21T10:15:30Z",
       "note": "new"
+    },
+    {
+      "rev": 3,
+      "field": "execution.observation",
+      "from": "prepared",
+      "to": "unknown",
+      "at": "2026-09-21T10:15:31Z",
+      "note": "arm"
+    },
+    {
+      "rev": 4,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "running",
+      "at": "2026-09-21T10:15:31Z",
+      "note": "observe"
+    },
+    {
+      "rev": 5,
+      "field": "execution.observation",
+      "from": "running",
+      "to": "stopped",
+      "at": "2026-09-21T10:31:02Z",
+      "note": "observe"
     }
   ]
 }

@@ -79,6 +79,7 @@ receipts/invalid/running-with-parent-exited.json	running-pending	/handle/parent_
 receipts/invalid/running-without-identity.json	running-pending	/handle/pid
 receipts/invalid/salvage-delegated.json	salvage-prepared	/route/tier
 receipts/invalid/schema-version.json	prepared-pending	/schema
+receipts/invalid/scope-containment-without-path.json	stopped-pending-scope-empty	/handle/scope
 receipts/invalid/scope-empty-without-scope.json	stopped-pending-scope-empty	/handle/containment
 receipts/invalid/stop-evidence-unsafe--bare-exit.json	stopped-pending-no-result	/execution/stop_evidence
 receipts/invalid/stop-evidence-unsafe--provider-event.json	stopped-pending-no-result	/execution/stop_evidence
@@ -96,7 +97,6 @@ receipts/semantic-invalid/accepted-task-digest-mismatch.json	stopped-accepted-pr
 receipts/semantic-invalid/artifact-digest-not-latest-inspection.json	stopped-pending-no-result	-
 receipts/semantic-invalid/chain-root-not-self.json	prepared-pending	-
 receipts/semantic-invalid/chain-root-self-on-continuation.json	continuation-prepared-claim-requested	-
-receipts/semantic-invalid/claim-namespace-not-target.json	prepared-pending	-
 receipts/semantic-invalid/continues-self.json	continuation-prepared-claim-requested	-
 receipts/semantic-invalid/read-target-changed-unreported.json	read-claim-free-stopped	-
 receipts/semantic-invalid/reemit-accepted-with-own-writes.json	reemit-accepted-projected	-

@@ -54,6 +54,7 @@
     "provider_session": null,
     "runner": null,
     "containment": null,
+    "scope": null,
     "parent_exited_at": null
   },
   "claim": null,
