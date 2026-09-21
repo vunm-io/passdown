@@ -338,6 +338,21 @@ group_acceptance() {
   ok "reject plan_tampered" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code plan_tampered --reason "ticked its own box"
   [ "$(field "$id" .claim.state)" = released ] || fail "plan_tampered is not claim-holding"
   pass "a worker checkbox edit sets plan_touched and is rejected (F1)"
+
+  # An edit to the attempt's own task text is not plan_touched: the task
+  # digest goes stale instead, whoever made the edit (F3, F6).
+  git -C "$repo" checkout -q docs/plan.md
+  rm -f "$repo/src/hello.txt"
+  new_write "$repo"
+  drive "$id" "echo hello > '$repo/src/hello.txt'"
+  ok "result" --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
+  perl -pi -e 's/src\/hello.txt says hello/src\/hello.txt says hi/' "$repo/docs/plan.md"
+  ok "inspect" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  [ "$(field "$id" .artifact.plan_touched)" = false ] || fail "an edit to the task's own text counted as plan_touched"
+  run 3 "accept a stale task" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  printf '%s' "$err" | grep -q stale || fail "not reported stale: $err"
+  ok "reject stale" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code stale --reason "task edited"
+  pass "an edit to the task's own text makes it stale, not plan_touched (F3, F6)"
   git -C "$repo" checkout -q docs/plan.md
   rm -f "$repo/src/hello.txt"
 

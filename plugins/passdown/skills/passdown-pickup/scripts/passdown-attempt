@@ -478,18 +478,29 @@ task_paths_json() { # <normalized block on stdin> -> JSON array from "- Paths:"
     jq -R -s -c 'split(",") | map(gsub("`"; "") | gsub("^\\s+|\\s+$"; "")) | map(select(. != ""))'
 }
 
-# Canonical plan digest: the plan with every host-owned element normalized
-# (Dispatched lines removed, checkbox states fixed) except the attempt's own
-# task line, whose checkbox the worker must not touch (design 12.2).
+# Canonical plan digest (design 12.2): the plan with every host-owned element
+# normalized — Dispatched lines removed, checkbox states fixed — except the
+# attempt's own checkbox, which the worker must not touch. The attempt's own
+# task text is left out: an edit there makes the task digest stale, which is
+# the finding for it whoever made the edit (F3, F6).
 plan_digest() { # <plan> <task id>
   awk -v id="$2" '
+    function ind(s) { match(s, /^[ \t]*/); return RLENGTH }
     { sub(/\r$/, ""); sub(/[ \t]+$/, "") }
+    own && ($0 ~ /^#/ || ($0 != "" && ind($0) <= tind)) { own = 0 }
+    own { next }
     /^[ \t]*- Dispatched:/ { next }
     /^[ \t]*- \[[ xX]\][ \t]/ {
       rest = $0
       sub(/^[ \t]*- \[[ xX]\][ \t]+/, "", rest)
       split(rest, w, /[ \t]+/)
-      if (w[1] != id) sub(/- \[[ xX]\]/, "- [ ]")
+      if (w[1] == id) {
+        own = 1; tind = ind($0)
+        state = $0; sub(/^[ \t]*- \[/, "", state); state = substr(state, 1, 1)
+        print "- [" state "] " id " (own task; text covered by the task digest)"
+        next
+      }
+      sub(/- \[[ xX]\]/, "- [ ]")
     }
     { print }' "$1" | digest_stdin
 }

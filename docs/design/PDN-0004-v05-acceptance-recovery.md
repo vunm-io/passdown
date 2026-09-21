@@ -972,7 +972,11 @@ protocol above; each one makes a rule concrete.
   rejection before a continuation or a re-emit) while the chain still holds
   the claim. Plan integrity is `plan_touched`: the canonical plan's normalized
   digest against the chain root's baseline, and in a worktree any change to
-  the worker's copy.
+  the worker's copy. The normalized plan keeps the attempt's own checkbox
+  (a worker tick is `plan_touched`, F1) but leaves out the attempt's own task
+  text: an edit there already makes the task digest stale, and the host
+  cannot tell a planner's edit (F6) from a worker's (F3), so both end as
+  `stale`.
 - **Artifact digest form.** One compact JSON line
   `{"path":…,"status":…,"hash":…}` per changed path, sorted by path, each line
   LF-terminated, hashed with SHA-256. `status` is Git's name-status letter
