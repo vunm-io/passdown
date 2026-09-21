@@ -137,3 +137,6 @@ results/invalid/structure--missing-summary.json	submitted
 results/invalid/unknown-member--nested.json	submitted	/changed_paths/0
 results/invalid/unknown-member--top-level.json	submitted	
 results/semantic-invalid/attempt-mismatch--other-attempt.json	submitted	-
+results/invalid/path--windows-absolute.json	submitted	/changed_paths/0/path
+results/invalid/path--windows-drive-relative.json	submitted	/changed_paths/0/path
+results/invalid/path--windows-context.json	needs-input	/question

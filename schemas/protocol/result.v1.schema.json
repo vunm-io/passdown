@@ -111,12 +111,12 @@
       "pattern": "^pd-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
     },
     "relativePath": {
-      "$comment": "Relative and normalized: non-empty segments separated by single slashes, no leading slash, no trailing slash, no backslash or NUL, no '.' or '..' segment.",
+      "$comment": "Relative and normalized: non-empty segments separated by single slashes, no Windows drive prefix, no leading slash, no trailing slash, no backslash or NUL, no '.' or '..' segment.",
       "type": "string",
       "minLength": 1,
       "maxLength": 1024,
       "pattern": "^[^/\\\\\\x00]+(/[^/\\\\\\x00]+)*$",
-      "not": { "pattern": "(^|/)\\.{1,2}(/|$)" }
+      "not": { "pattern": "(^|/)\\.{1,2}(/|$)|^[A-Za-z]:" }
     },
     "notes": {
       "type": "array",
