@@ -6,6 +6,31 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Delegated completion authority (PDN-0003): a delegated worker — external
+  CLI or native subagent — can no longer mark canonical plan completion.
+  - `passdown-dispatch` gains a completion-authority section. External work
+    is assigned by an exact task reference instead of "the next pending
+    task", every prompt carries an authority clause forbidding plan-file
+    edits, worker edits to checkboxes/`Dispatched:` lines/criteria are
+    restored from the baseline, and only the host ticks a task after
+    recording `accepted` in its `Dispatched:` line (`rejected` / `failed`
+    leave it `[ ]`).
+  - The OpenSpec `passdown` schema's `apply.instruction` now tells an
+    assigned worker to implement only its task and not edit `tasks.md`;
+    the owning session keeps "mark each task complete as you go".
+  - `passdown-handoff` syncs checkboxes to accepted work only: unverified
+    delegated work goes back to `[ ]` and is named in Caveats / traps.
+  - `passdown-pickup` flags a delegated `[x]` without a host `accepted`
+    verdict as inconsistent (or unconfirmed when no `Dispatched:` line
+    exists) and briefs it as still pending verification.
+  - Current-session (`main`) work is unchanged: host and worker are the
+    same actor, so it still marks tasks complete as it goes.
+- `tests/openspec-apply.sh` checks the instruction a worker actually
+  receives from `openspec instructions apply`; CI runs it against the pinned
+  OpenSpec CLI.
+
 ### Changed
 
 - `passdown-handoff`: done/total counts quoted in a log must be counted

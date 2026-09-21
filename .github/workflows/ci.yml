@@ -81,6 +81,11 @@ jobs:
           cd "$scratch"
           npx --yes @fission-ai/openspec@1.5.0 schema validate passdown
 
+      - name: Check the apply instruction a delegated worker receives
+        env:
+          OPENSPEC: npx --yes @fission-ai/openspec@1.5.0
+        run: ./tests/openspec-apply.sh
+
       - name: Check examples/basic-workspace schema copy is in sync
         run: |
           diff -r schemas/passdown examples/basic-workspace/openspec/schemas/passdown

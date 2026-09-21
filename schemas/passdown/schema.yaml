@@ -266,5 +266,18 @@ apply:
     - tasks
   tracks: tasks.md
   instruction: |
-    Read context files, work through pending tasks, mark complete as you go.
+    Read context files first. Who marks tasks complete depends on your role.
+
+    If you own this change (you run its tasks yourself in this session):
+    work through pending tasks and mark each task complete as you go, after
+    its Verification passes.
+
+    If a dispatching host assigned you one task (you are a delegated
+    worker): implement exactly that task and nothing else. Do not choose
+    another pending task. Do not edit tasks.md: no checkbox changes, no
+    `Dispatched:` lines, no edits to done criteria or verification. If one
+    of those looks wrong, report it instead. Return your outcome, changed
+    paths and verification evidence to the host. Only the host marks the
+    task complete, after it verifies your work.
+
     Pause if you hit blockers or need clarification.

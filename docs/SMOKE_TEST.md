@@ -102,6 +102,13 @@ schema, and a session log, so you can diff behavior instead of guessing.
       `examples/basic-workspace/openspec/changes/pkg-0001-demo/tasks.md` and
       confirm it reads the `[dispatch: external-ok]` / `[dispatch: main]`
       tags and proposes routing accordingly (tasks 1.1/1.2 external, 2.1 main)
+- [ ] **completion authority**: dispatch task 1.1 to an external executor
+      and confirm the prompt names `pkg-0001-demo` task 1.1 exactly (not
+      "the next pending task") and carries the authority clause; if the
+      worker edits `tasks.md` anyway, the host restores it from the
+      baseline; `1.1` is ticked `[x]` only after the host's own
+      verification, together with a `Dispatched: ... — accepted; verified:
+      ...` line
 - [ ] **passdown-handoff**: end a short session and confirm it writes
       `docs/log/YYYY-MM-DD_<topic>_<agent>-HHMMSS.md` starting with
       `status`/`branch`/`agent`/`plan` frontmatter; repeat with the same
@@ -110,6 +117,12 @@ schema, and a session log, so you can diff behavior instead of guessing.
       confirm it reads the newest log's frontmatter, cross-checks
       `openspec/changes/pkg-0001-demo/tasks.md`, and produces a briefing
       without starting execution
+- [ ] **pickup flags unverified completion**: in a scratch copy, tick task
+      1.1 `[x]` and add `- Dispatched: agy (2026-09-21) — rejected: tests
+      fail; verified: npm test` under it; confirm pickup reports 1.1 as
+      inconsistent and briefs it as pending verification; remove the line
+      and confirm pickup reports 1.1 as unconfirmed; `[x]` on task 2.1
+      (`[dispatch: main]`) with no line is not flagged
 
 ## 6. OpenSpec schema, from scratch
 
