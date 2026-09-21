@@ -1,0 +1,23 @@
+{
+  "schema": "passdown.claim/v1",
+  "key": "repo",
+  "holder": "pd-20260921T120000Z-9c8d7e6f",
+  "store": "/work/planner/.git/passdown/attempts",
+  "profile": null,
+  "location": "/work/target",
+  "acquired_at": "2026-09-21T10:15:30Z",
+  "history": [
+    {
+      "from": "pd-20260921T090000Z-0a1b2c3d",
+      "to": "pd-20260921T110000Z-5e6f7a8b",
+      "at": "2026-09-21T10:15:31Z"
+    },
+    {
+      "from": "pd-20260921T110000Z-5e6f7a8b",
+      "to": "pd-20260921T120000Z-9c8d7e6f",
+      "at": "2026-09-21T10:31:40Z"
+    }
+  ],
+  "released_at": null,
+  "release_basis": null
+}

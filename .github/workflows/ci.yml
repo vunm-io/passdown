@@ -20,7 +20,8 @@ jobs:
           while IFS= read -r -d '' f; do
             echo "checking $f"
             jq empty "$f"
-          done < <(find . -name "*.json" -not -path "*/node_modules/*" -print0)
+          done < <(find . -name "*.json" -not -path "*/node_modules/*" \
+            -not -path "./tests/fixtures/attempt/*/invalid/parse--*" -print0)
 
       - name: Validate shell scripts
         run: |
@@ -31,6 +32,9 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
+
+      - name: Run protocol contract tests
+        run: ./tests/contracts.sh
 
       - name: Install plugin CLIs
         run: |

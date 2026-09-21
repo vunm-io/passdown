@@ -1,0 +1,12 @@
+{
+  "schema": "passdown.claim/v1",
+  "key": "loc:0123456789abcdef",
+  "holder": "pd-20260921T101530Z-3f9a1c2e",
+  "store": "/work/planner/.git/passdown/attempts",
+  "profile": null,
+  "location": "/work/target",
+  "acquired_at": "2026-09-21T10:15:30Z",
+  "history": [],
+  "released_at": null,
+  "release_basis": null
+}

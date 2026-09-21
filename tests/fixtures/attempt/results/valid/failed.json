@@ -1,0 +1,22 @@
+{
+  "schema": "passdown.result/v1",
+  "attempt": "pd-20260921T101530Z-3f9a1c2e",
+  "disposition": "failed",
+  "summary": "Could not make the test pass; see evidence.",
+  "changed_paths": [
+    {
+      "path": "tests/attempt.sh",
+      "change": "modified"
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "command",
+      "command": "tests/attempt.sh",
+      "exit_code": 1
+    }
+  ],
+  "caveats": [
+    "test 17 still fails"
+  ]
+}

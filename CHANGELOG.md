@@ -10,6 +10,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Beta build for the `release/v0.5.0` testing window — not a GitHub release.
 
+### Added
+
+- v0.5 protocol contracts (PDN-0004, slice S1): JSON Schemas for the attempt
+  receipt, the worker result and the writer claim under `schemas/protocol/`
+  (`passdown.receipt/v1`, `passdown.result/v1`, `passdown.claim/v1`), with a
+  fixture corpus in `tests/fixtures/attempt/` that covers every state
+  combination and result rule of the v0.5 design. `tests/contracts.sh` checks
+  the corpus with a pinned JSON Schema validator in CI; each invalid fixture
+  must fail at the JSON pointer its manifest names. Nothing consumes the
+  contracts yet.
+
 ### Fixed
 
 - Delegated completion authority (PDN-0003): a delegated worker — external
