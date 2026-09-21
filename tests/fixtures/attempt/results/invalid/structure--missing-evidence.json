@@ -1,0 +1,22 @@
+{
+  "schema": "passdown.result/v1",
+  "attempt": "pd-20260921T101530Z-3f9a1c2e",
+  "disposition": "submitted",
+  "summary": "Added receipt schema and tests.",
+  "changed_paths": [
+    {
+      "path": "schemas/protocol/receipt.v1.schema.json",
+      "change": "added"
+    },
+    {
+      "path": "tests/attempt.sh",
+      "change": "modified"
+    }
+  ],
+  "assumptions": [
+    "receipt timestamps are UTC"
+  ],
+  "caveats": [],
+  "question": null,
+  "blocker": null
+}

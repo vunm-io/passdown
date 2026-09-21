@@ -1,0 +1,154 @@
+{
+  "schema": "passdown.receipt/v1",
+  "id": "pd-20260921T101530Z-3f9a1c2e",
+  "rev": 5,
+  "kind": "write",
+  "continues": null,
+  "chain_root": "pd-20260921T101530Z-3f9a1c2e",
+  "created_at": "2026-09-21T10:15:30Z",
+  "task": {
+    "ref": "openspec/changes/pdn-0004-x/tasks.md#2.1",
+    "planner_repo": "/work/planner",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "inputs": [
+      {
+        "path": "openspec/changes/pdn-0004-x/specs/a/spec.md",
+        "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ],
+    "paths": [
+      "scripts/",
+      "tests/attempt.sh"
+    ]
+  },
+  "host": {
+    "agent": "claude",
+    "session": null,
+    "passdown_version": "0.5.0-beta.1"
+  },
+  "route": {
+    "tier": "external",
+    "reason_code": "required-environment",
+    "reason": "needs the Gradle daemon configured only in the kiro profile"
+  },
+  "executor": {
+    "name": "kiro-cli",
+    "card": "kiro-cli@1",
+    "version": "2.22.1",
+    "engine": null,
+    "invocation_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "place": {
+    "repo": "/work/target",
+    "base_ref": "main",
+    "base_commit": "1a9ee38000000000000000000000000000000000",
+    "isolation": "current-checkout",
+    "profile": null,
+    "location": "/work/target",
+    "mutation_guard": null
+  },
+  "handle": {
+    "pid": 48211,
+    "pid_started": "Mon Sep 21 10:15:31 2026",
+    "pgid": 48211,
+    "provider_session": null,
+    "runner": null,
+    "containment": "pgroup",
+    "parent_exited_at": null
+  },
+  "claim": {
+    "namespace": "/work/target/.git/passdown/claims",
+    "key": "repo",
+    "state": "held",
+    "acquired_at": "2026-09-21T10:15:30Z",
+    "transferred_to": null,
+    "released_at": null,
+    "release_basis": null
+  },
+  "execution": {
+    "observation": "stopped",
+    "observed_at": "2026-09-21T10:31:02Z",
+    "stop_evidence": "exit+pgroup-empty",
+    "attested_by": null,
+    "exit": {
+      "code": null,
+      "signal": "KILL"
+    },
+    "cancel_requested_at": null,
+    "cancel_method": null,
+    "reconciled_at": null
+  },
+  "result": {
+    "ref": null,
+    "disposition": null,
+    "status": "none",
+    "diagnostics": [],
+    "source": null
+  },
+  "artifact": {
+    "at_arm": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "digest": null,
+    "expected": null,
+    "changed": null,
+    "out_of_scope": [],
+    "overlaps_baseline": [],
+    "plan_touched": null,
+    "inspections": [],
+    "target_at_arm": null,
+    "target_after": null
+  },
+  "verdict": {
+    "acceptance": "pending",
+    "reason_code": null,
+    "reason": null,
+    "task_digest": null,
+    "artifact_digest": null,
+    "checks": [],
+    "integration": null,
+    "scope_override": null,
+    "at": null,
+    "projected_at": null
+  },
+  "transitions": [
+    {
+      "rev": 1,
+      "field": "claim.state",
+      "from": null,
+      "to": "requested",
+      "at": "2026-09-21T10:15:30Z",
+      "note": "new"
+    },
+    {
+      "rev": 2,
+      "field": "claim.state",
+      "from": "requested",
+      "to": "held",
+      "at": "2026-09-21T10:15:30Z",
+      "note": "new"
+    },
+    {
+      "rev": 3,
+      "field": "execution.observation",
+      "from": "prepared",
+      "to": "unknown",
+      "at": "2026-09-21T10:15:31Z",
+      "note": "arm"
+    },
+    {
+      "rev": 4,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "running",
+      "at": "2026-09-21T10:15:31Z",
+      "note": "observe"
+    },
+    {
+      "rev": 5,
+      "field": "execution.observation",
+      "from": "running",
+      "to": "stopped",
+      "at": "2026-09-21T10:31:02Z",
+      "note": "observe"
+    }
+  ]
+}

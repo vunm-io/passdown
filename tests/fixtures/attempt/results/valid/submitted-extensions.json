@@ -1,0 +1,23 @@
+{
+  "schema": "passdown.result/v1",
+  "attempt": "pd-20260921T101530Z-3f9a1c2e",
+  "disposition": "submitted",
+  "summary": "Done.",
+  "changed_paths": [
+    {
+      "path": "a.txt",
+      "change": "added",
+      "x_lines": 3
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "observation",
+      "observed": "file exists",
+      "x_tool": "ls"
+    }
+  ],
+  "x_provider": {
+    "model": "unknown"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "passdown.claim/v1",
+  "key": "repo",
+  "holder": "pd-20260921T101530Z-3f9a1c2e",
+  "store": "/gone/.git/passdown/attempts",
+  "profile": null,
+  "location": "/work/target",
+  "acquired_at": "2026-09-21T10:15:30Z",
+  "history": [],
+  "released_at": "2026-09-21T10:33:25Z",
+  "release_basis": "attested:vunm (store deleted with the clone)"
+}

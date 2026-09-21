@@ -1,0 +1,19 @@
+{
+  "schema": "passdown.result/v1",
+  "attempt": "pd-20260921T101530Z-3f9a1c2e",
+  "disposition": "needs_input",
+  "summary": "The task does not say which lock is taken first.",
+  "changed_paths": [],
+  "evidence": [],
+  "question": {
+    "text": "Should re-emit reuse the provider session?",
+    "options": [
+      "reuse",
+      "fresh"
+    ],
+    "context_paths": [
+      "docs/design/PDN-0004-v05-acceptance-recovery.md"
+    ]
+  },
+  "blocker": null
+}

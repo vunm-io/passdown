@@ -1,0 +1,661 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vunm-io/passdown/schemas/protocol/receipt.v1.schema.json",
+  "title": "passdown.receipt/v1",
+  "description": "Host-owned record of one delegated attempt, mutated only through the passdown-attempt helper. Design: docs/design/PDN-0004-v05-acceptance-recovery.md sections 6, 8 and 10.4. This schema rejects every single-field and same-document state combination that JSON Schema can express. Invariants that compare two values (digest equality, chain_root = id, the transition log ending at rev), depend on the executor card (safe stop evidence) or span several files (one claim holder per key) are enforced by `passdown-attempt validate`; see tests/fixtures/attempt/README.md.",
+  "type": "object",
+  "required": [
+    "schema", "id", "rev", "kind", "continues", "chain_root", "created_at",
+    "task", "host", "route", "executor", "place", "handle", "claim",
+    "execution", "result", "artifact", "verdict", "transitions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "passdown.receipt/v1" },
+    "id": { "$ref": "#/$defs/attemptId" },
+    "rev": { "type": "integer", "minimum": 1 },
+    "kind": { "enum": ["write", "read", "reemit", "salvage"] },
+    "continues": { "$ref": "#/$defs/attemptIdOrNull" },
+    "chain_root": { "$ref": "#/$defs/attemptId" },
+    "created_at": { "$ref": "#/$defs/timestamp" },
+
+    "task": {
+      "type": "object",
+      "required": ["ref", "planner_repo", "digest", "inputs", "paths"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": { "type": "string", "pattern": "^[^#]+#[^#]+$", "maxLength": 1024 },
+        "planner_repo": { "$ref": "#/$defs/absolutePath" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "digest"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+              "digest": { "$ref": "#/$defs/digest" }
+            }
+          }
+        },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
+    },
+
+    "host": {
+      "type": "object",
+      "required": ["agent", "session", "passdown_version"],
+      "additionalProperties": false,
+      "properties": {
+        "agent": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "session": { "type": ["string", "null"], "maxLength": 500 },
+        "passdown_version": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+
+    "route": {
+      "type": "object",
+      "required": ["tier", "reason_code", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": { "enum": ["current", "native", "external"] },
+        "reason_code": {
+          "enum": [
+            "host-work",
+            "fresh-context", "parallelism",
+            "required-environment", "measured-specialization", "quota",
+            "owner-policy", "review-experiment"
+          ]
+        },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "tier": { "const": "current" } } },
+          "then": { "properties": { "reason_code": { "const": "host-work" } } }
+        },
+        {
+          "if": { "properties": { "tier": { "const": "native" } } },
+          "then": { "properties": { "reason_code": { "enum": ["fresh-context", "parallelism"] } } }
+        },
+        {
+          "if": { "properties": { "tier": { "const": "external" } } },
+          "then": {
+            "properties": {
+              "reason_code": {
+                "enum": ["required-environment", "measured-specialization", "quota", "owner-policy", "review-experiment"]
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    "executor": {
+      "type": "object",
+      "required": ["name", "card", "version", "engine", "invocation_digest"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "card": { "type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9-]*@[1-9][0-9]*$" },
+        "version": { "type": ["string", "null"], "maxLength": 200 },
+        "engine": { "type": ["string", "null"], "maxLength": 200 },
+        "invocation_digest": { "$ref": "#/$defs/digestOrNull" }
+      }
+    },
+
+    "place": {
+      "type": "object",
+      "required": ["repo", "base_ref", "base_commit", "isolation", "profile", "location", "mutation_guard"],
+      "additionalProperties": false,
+      "properties": {
+        "repo": { "$ref": "#/$defs/absolutePath" },
+        "base_ref": { "type": ["string", "null"], "maxLength": 1024 },
+        "base_commit": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" },
+        "isolation": { "enum": ["current-checkout", "worktree", "read-only"] },
+        "profile": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+        "location": { "$ref": "#/$defs/absolutePath" },
+        "mutation_guard": {
+          "type": ["string", "null"],
+          "pattern": "^(readonly:[A-Za-z0-9._-]+|snapshot\\+sandbox)$"
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "A concurrency profile only applies to worktree attempts (section 16).",
+          "if": { "properties": { "profile": { "type": "string" } } },
+          "then": { "properties": { "isolation": { "const": "worktree" } } }
+        }
+      ]
+    },
+
+    "handle": {
+      "type": "object",
+      "required": ["pid", "pid_started", "pgid", "provider_session", "runner", "containment", "parent_exited_at"],
+      "additionalProperties": false,
+      "properties": {
+        "pid": { "type": ["integer", "null"], "minimum": 1 },
+        "pid_started": { "type": ["string", "null"], "minLength": 1, "maxLength": 100 },
+        "pgid": { "type": ["integer", "null"], "minimum": 1 },
+        "provider_session": { "type": ["string", "null"], "minLength": 1, "maxLength": 500 },
+        "runner": { "type": ["string", "null"], "maxLength": 500 },
+        "containment": { "enum": ["pgroup", "scope", null] },
+        "parent_exited_at": { "$ref": "#/$defs/timestampOrNull" }
+      },
+      "allOf": [
+        {
+          "$comment": "A pid is bound to one process only together with its start time.",
+          "if": { "properties": { "pid": { "type": "integer" } } },
+          "then": { "properties": { "pid_started": { "type": "string" } } }
+        }
+      ]
+    },
+
+    "claim": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["namespace", "key", "state", "acquired_at", "transferred_to", "released_at", "release_basis"],
+          "additionalProperties": false,
+          "properties": {
+            "namespace": { "$ref": "#/$defs/absolutePath" },
+            "key": { "$ref": "#/$defs/claimKey" },
+            "state": { "enum": ["requested", "held", "transferred", "released"] },
+            "acquired_at": { "$ref": "#/$defs/timestampOrNull" },
+            "transferred_to": { "$ref": "#/$defs/attemptIdOrNull" },
+            "released_at": { "$ref": "#/$defs/timestampOrNull" },
+            "release_basis": { "$ref": "#/$defs/releaseBasisOrNull" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "state": { "const": "requested" } } },
+              "then": { "properties": { "acquired_at": { "type": "null" }, "transferred_to": { "type": "null" }, "released_at": { "type": "null" }, "release_basis": { "type": "null" } } }
+            },
+            {
+              "if": { "properties": { "state": { "const": "held" } } },
+              "then": { "properties": { "acquired_at": { "type": "string" }, "transferred_to": { "type": "null" }, "released_at": { "type": "null" }, "release_basis": { "type": "null" } } }
+            },
+            {
+              "if": { "properties": { "state": { "const": "transferred" } } },
+              "then": { "properties": { "acquired_at": { "type": "string" }, "transferred_to": { "type": "string" }, "released_at": { "type": "null" }, "release_basis": { "type": "null" } } }
+            },
+            {
+              "if": { "properties": { "state": { "const": "released" } } },
+              "then": { "properties": { "transferred_to": { "type": "null" }, "released_at": { "type": "string" }, "release_basis": { "type": "string" } } }
+            },
+            {
+              "$comment": "Only a never-committed claim is released without having been acquired.",
+              "if": { "properties": { "state": { "const": "released" }, "acquired_at": { "type": "null" } } },
+              "then": { "properties": { "release_basis": { "const": "never-committed" } } }
+            }
+          ]
+        }
+      ]
+    },
+
+    "execution": {
+      "type": "object",
+      "required": ["observation", "observed_at", "stop_evidence", "attested_by", "exit", "cancel_requested_at", "cancel_method", "reconciled_at"],
+      "additionalProperties": false,
+      "properties": {
+        "observation": { "enum": ["prepared", "unknown", "running", "stopped"] },
+        "observed_at": { "$ref": "#/$defs/timestamp" },
+        "stop_evidence": { "enum": ["not-launched", "exit+scope-empty", "exit+pgroup-empty", "owner-attested", null] },
+        "attested_by": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+        "exit": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["code", "signal"],
+              "additionalProperties": false,
+              "properties": {
+                "code": { "type": ["integer", "null"] },
+                "signal": { "type": ["string", "null"], "pattern": "^[A-Z0-9]+$" }
+              }
+            }
+          ]
+        },
+        "cancel_requested_at": { "$ref": "#/$defs/timestampOrNull" },
+        "cancel_method": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+        "reconciled_at": { "$ref": "#/$defs/timestampOrNull" }
+      },
+      "allOf": [
+        {
+          "$comment": "Stop evidence exists exactly when execution is stopped (section 8.3).",
+          "if": { "properties": { "observation": { "const": "stopped" } } },
+          "then": { "properties": { "stop_evidence": { "type": "string" } } },
+          "else": { "properties": { "stop_evidence": { "type": "null" }, "exit": { "type": "null" }, "reconciled_at": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "stop_evidence": { "const": "owner-attested" } } },
+          "then": { "properties": { "attested_by": { "type": "string" } } },
+          "else": { "properties": { "attested_by": { "type": "null" } } }
+        },
+        {
+          "$comment": "not-launched means no process existed, so it carries no exit status.",
+          "if": { "properties": { "stop_evidence": { "const": "not-launched" } } },
+          "then": { "properties": { "exit": { "type": "null" }, "cancel_requested_at": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "cancel_requested_at": { "type": "string" } } },
+          "then": { "properties": { "cancel_method": { "type": "string" } } },
+          "else": { "properties": { "cancel_method": { "type": "null" } } }
+        }
+      ]
+    },
+
+    "result": {
+      "type": "object",
+      "required": ["ref", "disposition", "status", "diagnostics", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": { "enum": ["result.json", null] },
+        "disposition": { "enum": ["submitted", "needs_input", "blocked", "failed", null] },
+        "status": { "enum": ["none", "valid", "invalid"] },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "enum": ["parse", "schema-version", "attempt-mismatch", "disposition", "question", "blocker", "path", "unknown-member", "length", "structure"]
+          },
+          "uniqueItems": true
+        },
+        "source": { "type": ["string", "null"], "pattern": "^reemit:pd-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "valid" } } },
+          "then": { "properties": { "ref": { "const": "result.json" }, "disposition": { "type": "string" }, "diagnostics": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "invalid" } } },
+          "then": { "properties": { "ref": { "type": "null" }, "disposition": { "type": "null" }, "diagnostics": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "none" } } },
+          "then": { "properties": { "ref": { "type": "null" }, "disposition": { "type": "null" }, "diagnostics": { "maxItems": 0 }, "source": { "type": "null" } } }
+        }
+      ]
+    },
+
+    "artifact": {
+      "type": "object",
+      "required": ["at_arm", "digest", "expected", "changed", "out_of_scope", "overlaps_baseline", "plan_touched", "inspections", "target_at_arm", "target_after"],
+      "additionalProperties": false,
+      "properties": {
+        "at_arm": { "$ref": "#/$defs/digestOrNull" },
+        "digest": { "$ref": "#/$defs/digestOrNull" },
+        "expected": { "$ref": "#/$defs/digestOrNull" },
+        "changed": { "type": ["integer", "null"], "minimum": 0 },
+        "out_of_scope": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "overlaps_baseline": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "plan_touched": { "type": ["boolean", "null"] },
+        "inspections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["at", "digest"],
+            "additionalProperties": false,
+            "properties": {
+              "at": { "$ref": "#/$defs/timestamp" },
+              "digest": { "$ref": "#/$defs/digest" }
+            }
+          }
+        },
+        "target_at_arm": { "$ref": "#/$defs/digestOrNull" },
+        "target_after": { "$ref": "#/$defs/digestOrNull" }
+      },
+      "allOf": [
+        {
+          "$comment": "An inspection sets the digest, the changed count and the plan-touch flag together.",
+          "if": { "properties": { "inspections": { "minItems": 1 } } },
+          "then": { "properties": { "digest": { "type": "string" }, "changed": { "type": "integer" }, "plan_touched": { "type": "boolean" } } },
+          "else": { "properties": { "digest": { "type": "null" }, "changed": { "type": "null" }, "plan_touched": { "type": "null" }, "out_of_scope": { "maxItems": 0 }, "overlaps_baseline": { "maxItems": 0 } } }
+        }
+      ]
+    },
+
+    "verdict": {
+      "type": "object",
+      "required": ["acceptance", "reason_code", "reason", "task_digest", "artifact_digest", "checks", "integration", "scope_override", "at", "projected_at"],
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": { "enum": ["pending", "accepted", "rejected"] },
+        "reason_code": {
+          "enum": [
+            "invalid_result", "verification_failed", "scope_violation", "plan_tampered",
+            "needs_input", "blocked", "worker_failed", "stale", "abandoned", "cancelled",
+            "integration_failed", "reemit_wrote", null
+          ]
+        },
+        "reason": { "type": ["string", "null"], "minLength": 1, "maxLength": 2000 },
+        "task_digest": { "$ref": "#/$defs/digestOrNull" },
+        "artifact_digest": { "$ref": "#/$defs/digestOrNull" },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "exit", "output"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "exit": { "type": "integer" },
+              "output": { "type": "string", "pattern": "^checks/[^/]+$" }
+            }
+          }
+        },
+        "integration": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["into", "head"],
+              "additionalProperties": false,
+              "properties": {
+                "into": { "$ref": "#/$defs/absolutePath" },
+                "head": { "type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$" }
+              }
+            }
+          ]
+        },
+        "scope_override": { "type": ["string", "null"], "minLength": 1, "maxLength": 1000 },
+        "at": { "$ref": "#/$defs/timestampOrNull" },
+        "projected_at": { "$ref": "#/$defs/timestampOrNull" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "acceptance": { "const": "pending" } } },
+          "then": {
+            "properties": {
+              "reason_code": { "type": "null" }, "reason": { "type": "null" },
+              "task_digest": { "type": "null" }, "artifact_digest": { "type": "null" },
+              "checks": { "maxItems": 0 }, "integration": { "type": "null" },
+              "scope_override": { "type": "null" }, "at": { "type": "null" },
+              "projected_at": { "type": "null" }
+            }
+          }
+        },
+        {
+          "$comment": "Every rejection carries a reason code (section 8.4) and is never projected as completion.",
+          "if": { "properties": { "acceptance": { "const": "rejected" } } },
+          "then": {
+            "properties": {
+              "reason_code": { "type": "string" }, "reason": { "type": "string" },
+              "at": { "type": "string" }, "projected_at": { "type": "null" }
+            }
+          }
+        },
+        {
+          "$comment": "Acceptance binds task digest, artifact digest and at least one passing host check (I-10).",
+          "if": { "properties": { "acceptance": { "const": "accepted" } } },
+          "then": {
+            "properties": {
+              "reason_code": { "type": "null" }, "reason": { "type": "null" },
+              "task_digest": { "type": "string" }, "artifact_digest": { "type": "string" },
+              "checks": { "minItems": 1, "contains": { "properties": { "exit": { "const": 0 } } } },
+              "at": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
+
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["rev", "field", "from", "to", "at", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "rev": { "type": "integer", "minimum": 1 },
+          "field": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "from": { "type": ["string", "integer", "boolean", "null"] },
+          "to": { "type": ["string", "integer", "boolean", "null"] },
+          "at": { "$ref": "#/$defs/timestamp" },
+          "note": { "type": ["string", "null"], "maxLength": 2000 }
+        }
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "$comment": "A chained attempt names its predecessor; re-emit and salvage are always chained (sections 12.4, 14).",
+      "if": { "properties": { "kind": { "enum": ["reemit", "salvage"] } } },
+      "then": { "properties": { "continues": { "type": "string" } } }
+    },
+    {
+      "$comment": "Salvage is host work in the current session (section 12.4).",
+      "if": { "properties": { "kind": { "const": "salvage" } } },
+      "then": { "properties": { "route": { "properties": { "tier": { "const": "current" } } } } }
+    },
+    {
+      "$comment": "Read attempts, and only read attempts, run with read-only isolation; only they may name a mutation guard (section 16).",
+      "if": { "properties": { "kind": { "const": "read" } } },
+      "then": { "properties": { "place": { "properties": { "isolation": { "const": "read-only" } } } } },
+      "else": { "properties": { "place": { "properties": { "isolation": { "enum": ["current-checkout", "worktree"] }, "mutation_guard": { "type": "null" } } } } }
+    },
+    {
+      "$comment": "Claim-free exactly when a read attempt has an enforced mutation guard (section 10.4).",
+      "if": {
+        "properties": {
+          "kind": { "const": "read" },
+          "place": { "properties": { "mutation_guard": { "type": "string" } } }
+        }
+      },
+      "then": { "properties": { "claim": { "type": "null" } } },
+      "else": { "properties": { "claim": { "type": "object" } } }
+    },
+    {
+      "$comment": "Profile attempts claim their loc: key; profile-less attempts claim the exclusive repo key.",
+      "if": { "properties": { "place": { "properties": { "profile": { "type": "string" } } }, "claim": { "type": "object" } } },
+      "then": { "properties": { "claim": { "properties": { "key": { "pattern": "^loc:" } } } } },
+      "else": { "properties": { "claim": { "if": { "type": "object" }, "then": { "properties": { "key": { "const": "repo" } } } } } }
+    },
+    {
+      "$comment": "Only a re-emit carries an expected chain artifact (section 12.4).",
+      "if": { "properties": { "kind": { "const": "reemit" } } },
+      "then": { "properties": { "artifact": { "properties": { "expected": { "type": "string" } } } } },
+      "else": { "properties": { "artifact": { "properties": { "expected": { "type": "null" } } } } }
+    },
+    {
+      "$comment": "Target-tree digests are recorded for claim-free reads only (section 16).",
+      "if": { "properties": { "claim": { "type": "null" } } },
+      "else": { "properties": { "artifact": { "properties": { "target_at_arm": { "type": "null" }, "target_after": { "type": "null" } } } } }
+    },
+    {
+      "$comment": "prepared: never armed, so no process handle, no launch-time artifact digest (section 8.1).",
+      "if": { "properties": { "execution": { "properties": { "observation": { "const": "prepared" } } } } },
+      "then": {
+        "properties": {
+          "handle": { "$ref": "#/$defs/emptyHandle" },
+          "artifact": { "properties": { "at_arm": { "type": "null" }, "target_at_arm": { "type": "null" } } },
+          "execution": { "properties": { "cancel_requested_at": { "type": "null" } } },
+          "result": { "properties": { "status": { "const": "none" } } }
+        }
+      }
+    },
+    {
+      "$comment": "Once armed, the launch-time chain artifact exists (sections 10.3, 12.2).",
+      "if": { "properties": { "execution": { "properties": { "observation": { "enum": ["unknown", "running"] } } } } },
+      "then": { "properties": { "artifact": { "properties": { "at_arm": { "type": "string" } } } } }
+    },
+    {
+      "$comment": "running needs an identity-bound observation: pid with start time, or a provider session (section 8.1).",
+      "if": { "properties": { "execution": { "properties": { "observation": { "const": "running" } } } } },
+      "then": {
+        "properties": {
+          "handle": {
+            "anyOf": [
+              { "properties": { "pid": { "type": "integer" }, "pid_started": { "type": "string" } } },
+              { "properties": { "provider_session": { "type": "string" } } }
+            ],
+            "properties": { "parent_exited_at": { "type": "null" } }
+          }
+        }
+      }
+    },
+    {
+      "$comment": "not-launched stops only an attempt that never had a process (section 8.3).",
+      "if": { "properties": { "execution": { "properties": { "stop_evidence": { "const": "not-launched" } } } } },
+      "then": { "properties": { "handle": { "$ref": "#/$defs/emptyHandle" } } }
+    },
+    {
+      "$comment": "Machine exit evidence names the containment the host launched in (section 8.3).",
+      "if": { "properties": { "execution": { "properties": { "stop_evidence": { "const": "exit+scope-empty" } } } } },
+      "then": { "properties": { "handle": { "properties": { "containment": { "const": "scope" } } } } }
+    },
+    {
+      "if": { "properties": { "execution": { "properties": { "stop_evidence": { "const": "exit+pgroup-empty" } } } } },
+      "then": { "properties": { "handle": { "properties": { "pgid": { "type": "integer" } } } } }
+    },
+    {
+      "$comment": "Ownership risk (running/unknown) always implies a held claim; it is never released, transferred or merely requested (I-12, section 8.5).",
+      "if": {
+        "properties": {
+          "execution": { "properties": { "observation": { "enum": ["unknown", "running"] } } },
+          "claim": { "type": "object" }
+        }
+      },
+      "then": { "properties": { "claim": { "properties": { "state": { "const": "held" } } } } }
+    },
+    {
+      "$comment": "A result is extracted only after launch.",
+      "if": { "properties": { "result": { "properties": { "status": { "enum": ["valid", "invalid"] } } } } },
+      "then": { "properties": { "execution": { "properties": { "observation": { "enum": ["unknown", "running", "stopped"] } } } } }
+    },
+    {
+      "$comment": "Inspection requires stopped, and the first inspection sets reconciled_at (sections 10.3, 12.2).",
+      "if": { "properties": { "artifact": { "properties": { "inspections": { "minItems": 1 } } } } },
+      "then": { "properties": { "execution": { "properties": { "observation": { "const": "stopped" }, "reconciled_at": { "type": "string" } } } } },
+      "else": { "properties": { "execution": { "properties": { "reconciled_at": { "type": "null" } } } } }
+    },
+    {
+      "$comment": "accepted requires stopped + reconciled, a valid submitted result and a clean or overridden artifact (I-8, section 12.3).",
+      "if": { "properties": { "verdict": { "properties": { "acceptance": { "const": "accepted" } } } } },
+      "then": {
+        "properties": {
+          "execution": { "properties": { "observation": { "const": "stopped" }, "reconciled_at": { "type": "string" } } },
+          "result": { "properties": { "status": { "const": "valid" }, "disposition": { "const": "submitted" } } },
+          "artifact": { "properties": { "at_arm": { "type": "string" }, "digest": { "type": "string" } } }
+        }
+      }
+    },
+    {
+      "$comment": "Scope or plan violations are accepted only with a recorded override (section 12.3 rule 5).",
+      "if": {
+        "properties": { "verdict": { "properties": { "acceptance": { "const": "accepted" } } } },
+        "anyOf": [
+          { "properties": { "artifact": { "properties": { "out_of_scope": { "minItems": 1 } } } } },
+          { "properties": { "artifact": { "properties": { "plan_touched": { "const": true } } } } }
+        ]
+      },
+      "then": { "properties": { "verdict": { "properties": { "scope_override": { "type": "string" } } } } }
+    },
+    {
+      "$comment": "A projected, accepted attempt is resolved and has released its claim (section 10.4 release conditions).",
+      "if": {
+        "properties": {
+          "verdict": { "properties": { "projected_at": { "type": "string" } } },
+          "claim": { "type": "object" }
+        }
+      },
+      "then": { "properties": { "claim": { "properties": { "state": { "const": "released" } } } } }
+    },
+    {
+      "$comment": "A worker disposition other than submitted is rejected with its matching reason (sections 8.4, 14).",
+      "if": {
+        "properties": {
+          "result": { "properties": { "disposition": { "const": "needs_input" } } },
+          "verdict": { "properties": { "acceptance": { "const": "rejected" } } }
+        }
+      },
+      "then": { "properties": { "verdict": { "properties": { "reason_code": { "enum": ["needs_input", "stale", "cancelled", "plan_tampered", "scope_violation"] } } } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "result": { "properties": { "disposition": { "const": "blocked" } } },
+          "verdict": { "properties": { "acceptance": { "const": "rejected" } } }
+        }
+      },
+      "then": { "properties": { "verdict": { "properties": { "reason_code": { "enum": ["blocked", "stale", "cancelled", "plan_tampered", "scope_violation"] } } } } }
+    },
+    {
+      "$comment": "abandon applies only to an attempt that was never launched (section 10.3).",
+      "if": { "properties": { "verdict": { "properties": { "reason_code": { "const": "abandoned" } } } } },
+      "then": { "properties": { "execution": { "properties": { "stop_evidence": { "enum": ["not-launched", null] } } } } }
+    },
+    {
+      "$comment": "reemit_wrote applies only to a re-emit; invalid_result requires an invalid or missing result.",
+      "if": { "properties": { "verdict": { "properties": { "reason_code": { "const": "reemit_wrote" } } } } },
+      "then": { "properties": { "kind": { "const": "reemit" } } }
+    },
+    {
+      "if": { "properties": { "verdict": { "properties": { "reason_code": { "const": "invalid_result" } } } } },
+      "then": { "properties": { "result": { "properties": { "status": { "enum": ["none", "invalid"] } } } } }
+    },
+    {
+      "$comment": "Only a stopped attempt rejected with a claim-holding reason hands its claim to a successor (section 10.4).",
+      "if": { "properties": { "claim": { "type": "object", "properties": { "state": { "const": "transferred" } } } } },
+      "then": { "properties": { "execution": { "properties": { "observation": { "const": "stopped" } } }, "verdict": { "properties": { "acceptance": { "const": "rejected" } } } } }
+    }
+  ],
+
+  "$defs": {
+    "attemptId": {
+      "type": "string",
+      "pattern": "^pd-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "attemptIdOrNull": {
+      "type": ["string", "null"],
+      "pattern": "^pd-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "timestampOrNull": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "digestOrNull": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "absolutePath": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 4096,
+      "pattern": "^/"
+    },
+    "claimKey": {
+      "type": "string",
+      "pattern": "^(repo|loc:[0-9a-f]{16})$"
+    },
+    "releaseBasisOrNull": {
+      "type": ["string", "null"],
+      "pattern": "^(resolved|never-committed|attested:.+)$"
+    },
+    "emptyHandle": {
+      "properties": {
+        "pid": { "type": "null" },
+        "pid_started": { "type": "null" },
+        "pgid": { "type": "null" },
+        "provider_session": { "type": "null" },
+        "containment": { "type": "null" },
+        "parent_exited_at": { "type": "null" }
+      }
+    }
+  }
+}

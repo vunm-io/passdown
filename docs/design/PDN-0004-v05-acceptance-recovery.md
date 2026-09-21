@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed — design only, no implementation yet |
+| **Status** | Accepted ([#14](https://github.com/vunm-io/passdown/pull/14)); implementation in progress on `release/v0.5.0` (§26) |
 | **Date** | 2026-09-21 |
 | **Issue** | [#12](https://github.com/vunm-io/passdown/issues/12) |
 | **Architecture** | [RFC #10](https://github.com/vunm-io/passdown/issues/10): Round 3 synthesis and final Claude/Codex dispositions |
@@ -413,6 +413,34 @@ Rules:
   two hosts that both read revision 7 would both rename a revision 8.
 - The `claim` object is a projection of the authoritative claim file in the
   target namespace (§5.6, §10.4).
+
+**Contract refinements (S1).** The published schemas in `schemas/protocol/`
+are the normative field list; they refine the sketch above without changing
+its semantics:
+
+- `place.mutation_guard` records `new --mutation-guard` (`readonly:<m>` or
+  `snapshot+sandbox`, read attempts only). `claim` is `null` exactly for a
+  read attempt with a guard.
+- `execution.attested_by` records who attested an `owner-attested` stop.
+- `artifact.inspections[]` keeps every `inspect` (time + digest) for the
+  settle check (§12.3 rule 4); `artifact.overlaps_baseline[]` lists
+  pre-existing dirty paths the attempt changed (§12.2);
+  `artifact.target_at_arm` / `target_after` hold the target-tree digests of a
+  claim-free read (§16).
+- `verdict.scope_override` records the `--scope-override` reason.
+- `route.reason_code` is `host-work` for `tier = current` (salvage and
+  host continuations).
+- `result.diagnostics` adds `structure` (a missing member or wrong type) to
+  the §7 codes.
+- A `loc:` claim key is `loc:` plus the first 16 hex digits of the SHA-256 of
+  the attempt's absolute worktree path.
+- Timestamps are UTC with second precision (`YYYY-MM-DDTHH:MM:SSZ`).
+
+Rules that compare two values, depend on the executor card or span files
+(digest equality, `chain_root`, the transition log, safe stop evidence per
+card, one holder per claim key) are not expressible in JSON Schema. The
+helper enforces them, and the fixture corpus keeps them in a separate
+`semantic-invalid/` layer (`tests/fixtures/attempt/README.md`).
 
 ## 7. Worker result schema
 
