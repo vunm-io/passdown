@@ -25,8 +25,11 @@ jobs:
 
       - name: Validate shell scripts
         run: |
-          bash -n install.sh scripts/*.sh tests/*.sh
-          shellcheck install.sh scripts/*.sh tests/*.sh
+          bash -n install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt
+          shellcheck install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt
+
+      - name: Check bundled helper and schema copies
+        run: ./scripts/sync-bundled.sh --check
 
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -93,3 +96,53 @@ jobs:
       - name: Check examples/basic-workspace schema copy is in sync
         run: |
           diff -r schemas/passdown examples/basic-workspace/openspec/schemas/passdown
+
+  helper:
+    # The attempt helper on Linux and on macOS's stock bash 3.2.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run helper tests
+        run: |
+          jq --version
+          if [ "$RUNNER_OS" = macOS ]; then /bin/bash --version | head -n 1; /bin/bash tests/attempt.sh; else tests/attempt.sh; fi
+
+  helper-windows:
+    # Windows is supported with prerequisites: Git Bash plus a jq the job
+    # installs itself (design PDN-0004 section 22). Process probes are not
+    # available there, so this runs the platform-independent groups.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install jq
+        run: |
+          mkdir -p "$RUNNER_TEMP/jq"
+          curl -fsSL -o "$RUNNER_TEMP/jq/jq.exe" \
+            https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-windows-amd64.exe
+          echo "$RUNNER_TEMP/jq" >>"$GITHUB_PATH"
+
+      - name: Run helper tests (conformance and digests)
+        run: |
+          jq --version
+          tests/attempt.sh conformance digests
+
+  helper-stress:
+    # Concurrency stress: the concurrent-new race (F19) over 50 rounds, the
+    # crash-point sweep (F23) and the receipt compare-and-write race (F25).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run concurrency stress
+        env:
+          PASSDOWN_STRESS_ROUNDS: '50'
+        run: tests/attempt.sh crash races

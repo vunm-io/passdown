@@ -20,6 +20,20 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   the corpus with a pinned JSON Schema validator in CI; each invalid fixture
   must fail at the JSON pointer its manifest names. Nothing consumes the
   contracts yet.
+- Deterministic attempt helper (PDN-0004, slice S2):
+  `scripts/passdown-attempt`, a Bash + `jq` CLI that creates attempt
+  receipts in the Git common dir and applies every allowed transition of the
+  v0.5 design and refuses the rest. It validates worker results, computes
+  task and artifact digests, and guards writers with a claim kept in the
+  target repository: taking, transferring and releasing a claim survive a
+  crash at any step. Every receipt write is a locked compare-and-write that
+  is checked against the published schemas before it lands. Byte-identical
+  copies ship in the dispatch, pickup and handoff skills
+  (`scripts/sync-bundled.sh`; CI fails on drift). `tests/attempt.sh` covers
+  the transition table, schema conformance, golden digests, a crash-point
+  sweep and concurrency races on Linux, macOS (bash 3.2) and Windows (Git
+  Bash with `jq`). `scripts/doctor.sh` now reports a missing `jq`. No skill
+  calls the helper yet.
 
 ### Fixed
 

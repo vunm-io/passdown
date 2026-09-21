@@ -30,6 +30,8 @@ Create a short-lived branch such as `release/v0.2.0`. Update:
 - `.claude-plugin/marketplace.json` metadata + plugin versions
 - `plugins/passdown/.claude-plugin/plugin.json`
 - `plugins/passdown/.codex-plugin/plugin.json`
+- `scripts/passdown-attempt` (`PASSDOWN_VERSION`), then run
+  `./scripts/sync-bundled.sh` to refresh the bundled skill copies
 - `CHANGELOG.md`
 
 Run:

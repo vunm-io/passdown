@@ -61,6 +61,15 @@ Four workspace-agnostic Claude Code / Kiro skills (`passdown-intake`,
    ```
 4. **Skill edits** (`plugins/passdown/skills/*`): re-run `./install.sh` to
    sync `~/.claude/skills/` before testing the skill live in a session.
+5. **Attempt helper or protocol schema edits** (`scripts/passdown-attempt`,
+   `schemas/protocol/`): edit the canonical file only, never a bundled copy
+   under `plugins/passdown/skills/*/scripts|schemas/`, then:
+   ```bash
+   ./scripts/sync-bundled.sh          # refresh the bundled copies
+   shellcheck scripts/passdown-attempt
+   ./tests/contracts.sh               # schemas vs fixtures (needs node)
+   ./tests/attempt.sh                 # helper, also under /bin/bash 3.2 on macOS
+   ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above except step 4 on every
 push/PR — treat a red run the same as a failing test suite, not advisory.
@@ -69,7 +78,8 @@ push/PR — treat a red run the same as a failing test suite, not advisory.
 
 A release is prepared on a short-lived branch and merged through a green PR.
 Update `VERSION`, both Claude manifest versions, the Codex manifest version,
-and `CHANGELOG.md`, then verify:
+`PASSDOWN_VERSION` in `scripts/passdown-attempt` (then
+`./scripts/sync-bundled.sh`) and `CHANGELOG.md`, then verify:
 
 ```bash
 ./scripts/check-version.sh

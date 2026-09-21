@@ -946,6 +946,61 @@ one (`df -T`/`stat -f` type check where available). Claims coordinate Passdown
 helpers. They do not stop a human, or a tool that ignores Passdown, from
 writing into the same checkout (§24).
 
+### 10.5 Implementation notes (S2)
+
+Choices made while building `scripts/passdown-attempt`. None changes the
+protocol above; each one makes a rule concrete.
+
+- **One set of rules.** The helper does not re-implement the contract. It
+  evaluates the published `schemas/protocol/*.json` with a small built-in
+  JSON Schema evaluator written in jq, plus the invariants JSON Schema cannot
+  express. `tests/attempt.sh` checks that it reports the same verdict and the
+  same error locations as ajv on every fixture.
+- **Every write is validated.** `mutate` checks the new receipt against the
+  schema and the invariants before the rename. A claim release touches the
+  claim namespace only after that check passes, so a refused command can never
+  leave a released claim behind.
+- **Store resolution.** `--store`, else `PASSDOWN_ATTEMPT_DIR`, else
+  `<git common dir of the current directory>/passdown/attempts`. The skills
+  resolve the `attempt_dir` config key and pass `--store`.
+- **Task scope.** `task.paths` comes from the task's `- Paths:` sub-bullet,
+  split on commas. A task with no declared paths puts every changed path out
+  of scope (fail closed). A read attempt's artifact is measured in the target
+  repository, and every path it changed is out of scope.
+- **The plan is not part of the submission.** It is left out of the chain
+  artifact, because the host legitimately appends `Dispatched:` lines (a
+  rejection before a continuation or a re-emit) while the chain still holds
+  the claim. Plan integrity is `plan_touched`: the canonical plan's normalized
+  digest against the chain root's baseline, and in a worktree any change to
+  the worker's copy.
+- **Artifact digest form.** One compact JSON line
+  `{"path":…,"status":…,"hash":…}` per changed path, sorted by path, each line
+  LF-terminated, hashed with SHA-256. `status` is Git's name-status letter
+  (`A`, `M`, `D`; untracked files are `A`) or `reverted` for a baseline-dirty
+  path restored to its committed content. `hash` is `git hash-object`,
+  `deleted`, or `dir:<HEAD>` for a nested repository. Golden values are in
+  `tests/fixtures/attempt/golden/`.
+- **Card snapshot.** `new` copies the executor card (`card.md`, parsed as
+  `card.json`) into the attempt directory. Safety decisions for the attempt
+  read that copy, so a later card edit cannot change them. A missing card
+  means every capability is `unverified`.
+- **Abandon with writes.** `abandon` measures the location first. If it shows
+  changes since the baseline, a worker may have run without `arm` (C1 → C2),
+  and `abandon` requires `--attested-by`, recording `owner-attested` evidence.
+- **Repairs are not conflicts.** When the claim mutex repairs a projection
+  during the same invocation, a client that planned against the pre-repair
+  `rev` is not treated as stale.
+- **Locks.** A lock without an `owner` file counts as stale after one minute
+  (the portable `find -mmin` granularity), not 30 s. A lock wait times out
+  after 10 s with exit 5.
+- **A killed `new`.** After the claim-file commit point, a killed `new`
+  leaves a `prepared` attempt that holds the claim. Repair makes its
+  projection `held` (§10.4 table), and pickup shows it as C1: the host
+  abandons it. It is not reclaimed automatically; the C11 row below is
+  worded accordingly.
+- **Test hook.** `PASSDOWN_TEST_CRASH_AT=<point>` kills the helper at a named
+  claim sub-step (F23). It has no other effect.
+
 ## 11. Dispatch lifecycle
 
 For a delegated attempt (native or external). `main` work done in the current
@@ -1229,7 +1284,7 @@ on its own") and keeps its tests simple.
 | **C8 cancel unconfirmed** | `cancel_requested_at` set, observation `running`/`unknown` | **Yes** | `probe`; escalate the cancel method per card; confirm stop only with safe evidence (§8.3). A parent that exited after the signal while descendants cannot be ruled out is still C8. Until then the claim stays held and no other writer can start. |
 | **C9 orphaned** | unresolved, `host.session ≠` current and no update for longer than the card's budget, and not named in the latest handoff's `open_attempts` | Per observation | Surface prominently with age and location; then classify as C1–C8. |
 | **C10 interrupted continuation** | unresolved attempt with `continues ≠ null` | Per observation | Show the chain; resolve the newest link as C1–C8. The claim file names the newest link whose transfer committed; projections are repaired from it (§10.4). The predecessor's question/answer are in its receipt/result; nothing is re-asked. |
-| **C11 claim without a live holder** | `claims` shows a key held by an attempt that is stopped and resolved-with-holding-reason, or whose store is unreadable | No, if the holder is stopped. **Unknown** if the store is unreadable | Holder stopped: propose a follow-up (continuation / salvage) or `release-claim`. Store unreadable: surface as ownership risk; `release-claim --attested-by` only after the owner confirms no writer. A dangling claim from a crash inside `new` is reclaimed by the next `new` automatically (§10.4) and only reported. |
+| **C11 claim without a live holder** | `claims` shows a key held by an attempt that is stopped and resolved-with-holding-reason, or whose store is unreadable | No, if the holder is stopped. **Unknown** if the store is unreadable | Holder stopped: propose a follow-up (continuation / salvage) or `release-claim`. Store unreadable: surface as ownership risk; `release-claim --attested-by` only after the owner confirms no writer. A claim left by a `new` killed after its commit point names a `prepared` attempt: that is C1, and the host abandons it (§10.5). |
 
 Pickup reads claims in **every target repository** named by an unresolved
 attempt in its store, plus the current repository's own namespace. A claim

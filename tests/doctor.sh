@@ -20,6 +20,15 @@ doctor_status() { # doctor_status <home> -> exit code as text
   echo "$code"
 }
 
+test_missing_jq_is_an_issue() {
+  local home out code=0
+  home="$(new_home)"
+  out="$(HOME="$home" CODEX_HOME="$home/.codex" PASSDOWN_DOCTOR_JQ=passdown-no-such-jq "$doctor" 2>&1)" || code=$?
+  [ "$code" != 0 ] || fail "missing jq passed"
+  grep -q "ISSUE jq: not found" <<<"$out" || fail "missing jq was not named"
+  pass "missing jq is reported as an issue"
+}
+
 test_clean_home_passes() {
   local home
   home="$(new_home)"
@@ -75,6 +84,7 @@ test_plugin_only_passes() {
   pass "plugin-only install passes"
 }
 
+test_missing_jq_is_an_issue
 test_clean_home_passes
 test_direct_in_sync_passes
 test_stale_direct_install_fails

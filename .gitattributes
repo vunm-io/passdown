@@ -1,0 +1,5 @@
+# Shell scripts must keep LF endings on every platform (Windows CI runs them
+# under Git Bash).
+*.sh text eol=lf
+scripts/passdown-attempt text eol=lf
+plugins/passdown/skills/*/scripts/passdown-attempt text eol=lf
