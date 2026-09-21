@@ -475,12 +475,17 @@ F18() {
 F18b() {
   local a
   setup F18b
-  FAKE_DETACHED_DELAY=0.6 host dispatch --mode spawn-detached-writer --card fake-measured@1
+  # The descendant writes 3 s after the parent exits, well after the host's
+  # first inspection even on a slow runner.
+  FAKE_DETACHED_DELAY=3 host dispatch --mode spawn-detached-writer --card fake-measured@1
   a="$(attempt_of)"
   [ "$(field "$a" .execution.stop_evidence)" = exit+pgroup-empty ] || fail "the wrong card did not allow a pgroup stop"
   case "$(outcome_of)" in pending:*) ;; *) fail "outcome $(outcome_of)" ;; esac
-  # The host inspected once right after the stop; the settle inspection a
-  # card-mandated second later sees the descendant's write.
+  grep -q " $a .* src/late.txt" "$journal" && fail "premise: the late write landed before the first inspection"
+  # The settle inspection, at least the card's second later, sees the write.
+  local n=0
+  until grep -q " $a .* src/late.txt" "$journal" || [ "$n" -ge 200 ]; do sleep 0.05; n=$((n + 1)); done
+  grep -q " $a .* src/late.txt" "$journal" || fail "fixture: the descendant never wrote"
   sleep 1.1
   H inspect "$a" --rev "$(rev "$a")" >/dev/null
   [ "$(field "$a" '.artifact.inspections[-2].digest != .artifact.inspections[-1].digest')" = true ] ||
