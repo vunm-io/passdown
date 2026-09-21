@@ -372,6 +372,29 @@ group_acceptance() {
   ok "inspect 2" --store "$store" inspect "$id" --rev "$(rev "$id")"
   ok "accept after settle" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
   pass "exit+pgroup-empty is safe only on a measured card; settle needs two equal inspections (F18b core)"
+
+  # exit+scope-empty: safe on any card once the scope the host launched the
+  # worker in is empty. A cgroup v2 directory is simulated by its
+  # cgroup.procs file.
+  local scope="$scratch/cgroup-sim"
+  mkdir -p "$scope"
+  tick_plan "$repo" 1.1 "$id"
+  ok "projected" --store "$store" projected "$id" --rev "$(rev "$id")" --plan "$repo/docs/plan.md"
+  git -C "$repo" checkout -q docs/plan.md
+  new_write "$repo"
+  ok "arm" --store "$store" arm "$id" --rev "$(rev "$id")" --prompt "$prompt_file"
+  spawn "true"
+  printf '%s\n' "$wpid" >"$scope/cgroup.procs"
+  ok "running in a scope" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" \
+    --pgid "$wpid" --containment scope --scope "$scope"
+  wait "$wpid" || true
+  printf '%s\n' 99999 >"$scope/cgroup.procs"
+  run 3 "scope still has a process" --store "$store" observe "$id" stopped --rev "$(rev "$id")" --evidence exit+scope-empty
+  : >"$scope/cgroup.procs"
+  ok "scope empty" --store "$store" observe "$id" stopped --rev "$(rev "$id")" --evidence exit+scope-empty --exit 0
+  [ "$(field "$id" .execution.stop_evidence)" = exit+scope-empty ] || fail "scope evidence not recorded"
+  ok "reject" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code worker_failed --reason t
+  pass "exit+scope-empty needs the recorded scope to be empty, on any card"
 }
 
 group_claims() {
