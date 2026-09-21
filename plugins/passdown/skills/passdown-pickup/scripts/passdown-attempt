@@ -19,10 +19,10 @@ set -euo pipefail
 PASSDOWN_VERSION="0.5.0-beta.1"
 
 # Git Bash on Windows rewrites every argument that looks like a POSIX path
-# before a native program (jq.exe) sees it: `--arg p /holder` would arrive as
-# `C:/Program Files/Git/holder`. Automatic conversion is off, and the jq
-# wrapper below converts exactly the arguments jq opens as files.
-export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
+# before a native program sees it. git.exe needs that, but jq.exe must get
+# `--arg p /holder` verbatim, not as `C:/Program Files/Git/holder`. So the
+# jq wrapper below turns the conversion off for jq alone and converts
+# exactly the arguments jq opens as files.
 case "$(uname -s)" in
   MINGW* | MSYS* | CYGWIN*) JQ_NATIVE_PATHS=1 ;;
   *) JQ_NATIVE_PATHS=0 ;;
@@ -58,7 +58,7 @@ jq() {
         ;;
     esac
   done
-  command jq "${args[@]}"
+  MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' command jq "${args[@]}"
 }
 
 HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"

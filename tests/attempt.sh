@@ -17,8 +17,6 @@ helper="$repo_root/scripts/passdown-attempt"
 fixtures="$repo_root/tests/fixtures/attempt"
 export PASSDOWN_EXECUTOR_REFS="$fixtures/cards"
 unset PASSDOWN_ATTEMPT PASSDOWN_ATTEMPT_DIR PASSDOWN_TEST_CRASH_AT
-# Keep Git Bash on Windows from rewriting "/pointer" arguments to jq.exe.
-export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
 
 tests_run=0
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -183,7 +181,8 @@ group_conformance() {
         ;;
       *)
         [ "$pointer" = '!parse' ] && continue
-        jq -e --arg p "$pointer" '[.errors[].path] | index($p)' <<<"$json" >/dev/null ||
+        # Git Bash would rewrite a "/pointer" argument for jq.exe.
+        MSYS_NO_PATHCONV=1 jq -e --arg p "$pointer" '[.errors[].path] | index($p)' <<<"$json" >/dev/null ||
           bad="$bad $rel(paths $(jq -c '[.errors[].path] | unique' <<<"$json"))"
         ;;
     esac
