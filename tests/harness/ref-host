@@ -81,9 +81,12 @@ launch() {
       exec perl -e 'setpgrp(0, 0); exec @ARGV' "$executor" "$mode"
   ) >"$store/$id/transport.log" 2>&1 &
   wpid=$!
+  # Bind the pid to its start time at launch: a fast worker may be gone by
+  # the time the host records the observation.
+  wstart="$(ps -o lstart= -p "$wpid" | sed 's/^ *//; s/ *$//')"
   step launch "$id"
   crash_at after-launch "$id"
-  H observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pgid "$wpid" >/dev/null
+  H observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid" >/dev/null
   step running "$id"
   if [ "${REF_CRASH_AT:-}" = after-first-write ]; then
     local n=0
