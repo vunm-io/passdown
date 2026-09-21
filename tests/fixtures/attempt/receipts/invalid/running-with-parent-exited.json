@@ -54,6 +54,7 @@
     "provider_session": null,
     "runner": null,
     "containment": "pgroup",
+    "scope": null,
     "parent_exited_at": "2026-09-21T10:31:02Z"
   },
   "claim": {

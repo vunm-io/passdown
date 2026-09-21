@@ -135,7 +135,7 @@
 
     "handle": {
       "type": "object",
-      "required": ["pid", "pid_started", "pgid", "provider_session", "runner", "containment", "parent_exited_at"],
+      "required": ["pid", "pid_started", "pgid", "provider_session", "runner", "containment", "scope", "parent_exited_at"],
       "additionalProperties": false,
       "properties": {
         "pid": { "type": ["integer", "null"], "minimum": 1 },
@@ -144,6 +144,11 @@
         "provider_session": { "type": ["string", "null"], "minLength": 1, "maxLength": 500 },
         "runner": { "type": ["string", "null"], "maxLength": 500 },
         "containment": { "enum": ["pgroup", "scope", null] },
+        "scope": {
+          "description": "Containment scope the host launched the worker in: an absolute cgroup v2 directory. `probe` reads its cgroup.procs.",
+          "type": ["string", "null"],
+          "pattern": "^/"
+        },
         "parent_exited_at": { "$ref": "#/$defs/timestampOrNull" }
       },
       "allOf": [
@@ -151,6 +156,11 @@
           "$comment": "A pid is bound to one process only together with its start time.",
           "if": { "properties": { "pid": { "type": "integer" } } },
           "then": { "properties": { "pid_started": { "type": "string" } } }
+        },
+        {
+          "if": { "properties": { "containment": { "const": "scope" } } },
+          "then": { "properties": { "scope": { "type": "string" } } },
+          "else": { "properties": { "scope": { "type": "null" } } }
         }
       ]
     },
@@ -654,6 +664,7 @@
         "pgid": { "type": "null" },
         "provider_session": { "type": "null" },
         "containment": { "type": "null" },
+        "scope": { "type": "null" },
         "parent_exited_at": { "type": "null" }
       }
     }
