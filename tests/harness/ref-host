@@ -343,6 +343,12 @@ case "$cmd" in
       fi
       (cd "$(field "$id" .place.location)" && sh -c "$(verification_of "$(field "$id" '.task.ref | sub(".*#"; "")')")") >/dev/null 2>&1 ||
         { outcome "$id" "recheck-failed"; exit 0; }
+      # A passing check does not identify the accepted artifact. Recompute
+      # after verification, since the check itself may write files.
+      if [ "$(H digest artifact "$id")" != "$(field "$id" .verdict.artifact_digest)" ]; then
+        outcome "$id" "historical"
+        exit 0
+      fi
       if grep -q "attempt: $id" "$repo/$plan_rel"; then
         H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
         outcome "$id" accepted
@@ -376,8 +382,9 @@ case "$cmd" in
         echo "unconfirmed $t ticked without an accepted Dispatched line"
       elif [ -z "$a" ]; then
         echo "accepted $t (legacy line, no receipt)"
-      elif [ ! -f "$store/$a/receipt.json" ] || [ "$(field "$a" .verdict.acceptance)" != accepted ]; then
-        echo "inconsistent $t names $a, which is not an accepted receipt"
+      elif [ ! -f "$store/$a/receipt.json" ] || [ "$(field "$a" .verdict.acceptance)" != accepted ] ||
+        [ "$(field "$a" .task.ref)" != "$plan_rel#$t" ] || [ "$(field "$a" .task.planner_repo)" != "$repo" ]; then
+        echo "inconsistent $t names $a, which is not an accepted receipt for this task"
       else
         echo "accepted $t"
       fi

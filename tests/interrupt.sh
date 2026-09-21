@@ -668,6 +668,49 @@ F26() {
   pass "a profile with a global key is rejected; no claim is written"
 }
 
+F2b() {
+  local a
+  setup F2b
+  host dispatch --mode ok
+  a="$(attempt_of)"
+  [ "$(outcome_of)" = accepted ] || fail "fixture: task 1.1 was not accepted"
+  TASK=1.2 ATTEMPT="$a" perl -pi -e \
+    's/^- \[ \] 1.2 (.*)$/- [x] 1.2 $1\n  - Dispatched: fake — accepted; verified: true; attempt: $ENV{ATTEMPT}/' "$repo/docs/plan.md"
+  host pickup
+  grep -q '^accepted 1.1$' <<<"$out" || fail "pickup lost the correctly bound receipt"
+  grep -q '^inconsistent 1.2 ' <<<"$out" || fail "pickup accepted another task's receipt: $out"
+  ground_truth_accepted="1.1"
+  oracle
+  pass "pickup rejects an accepted receipt belonging to another task"
+}
+
+F14c() {
+  local a
+  setup F14c
+  REF_CRASH_AT=after-verdict host dispatch --mode ok
+  a="$(attempt_of)"
+  [ "$(class_of "$a")" = C6 ] || fail "fixture: not C6"
+  printf 'changed after verdict\n' >>"$repo/src/hello.txt"
+  # The original host check still passes; the artifact digest must bind
+  # projection to the accepted tree independently of that check.
+  grep -q hello "$repo/src/hello.txt" || fail "fixture: verification no longer passes"
+  host finish --id "$a"
+  [ "$(outcome_of)" = historical ] || fail "changed artifact was projected: $out"
+  [ "$(field "$a" .verdict.projected_at)" = null ] || fail "historical verdict projected"
+  [ "$(field "$a" .claim.state)" = held ] || fail "historical verdict released the claim"
+  grep -q '^- \[ \] 1.1 ' "$repo/docs/plan.md" || fail "historical verdict ticked the plan"
+  host pickup
+  grep -q '^accepted 1.1' <<<"$out" && fail "pickup accepted the historical artifact"
+  # Restore the accepted bytes before the oracle, which compares historical
+  # accepted receipts to the final tree; this also tests successful retry.
+  printf 'hello\n' >"$repo/src/hello.txt"
+  host finish --id "$a"
+  [ "$(outcome_of)" = accepted ] || fail "restored artifact cannot be projected: $out"
+  ground_truth_accepted="1.1"
+  oracle
+  pass "C6 refuses changed artifacts even when verification still passes"
+}
+
 # ------------------------------------------------------------ mutation check
 
 mutation() {
@@ -694,7 +737,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 mutation"
+all="F1 F2 F2b F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do
