@@ -14,9 +14,13 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     is assigned by an exact task reference instead of "the next pending
     task", every prompt carries an authority clause forbidding plan-file
     edits, worker edits to checkboxes/`Dispatched:` lines/criteria are
-    restored from the baseline, and only the host ticks a task after
-    recording `accepted` in its `Dispatched:` line (`rejected` / `failed`
-    leave it `[ ]`).
+    restored from the baseline only when they are unambiguously the
+    worker's (otherwise the host stops and reports the conflict), and only
+    the host ticks a task after recording `accepted` in its `Dispatched:`
+    line (`rejected` / `failed` leave it `[ ]`).
+  - One accepted-verdict rule is shared by dispatch, handoff and pickup:
+    `accepted` with a host check, or a pre-existing success line that
+    names a host check, so upgrading does not reopen verified tasks.
   - The OpenSpec `passdown` schema's `apply.instruction` now tells an
     assigned worker to implement only its task and not edit `tasks.md`;
     the owning session keeps "mark each task complete as you go".
