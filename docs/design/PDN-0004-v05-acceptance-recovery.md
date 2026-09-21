@@ -9,7 +9,7 @@
 | **Baseline** | [#13](https://github.com/vunm-io/passdown/pull/13), merged as `1a9ee38` (PDN-0003, delegated completion authority) |
 | **Author** | Claude (primary implementer) |
 | **Reviewer** | ChatGPT |
-| **Revision** | r2 — addresses the [first design review](https://github.com/vunm-io/passdown/pull/14#issuecomment-5757998644) |
+| **Revision** | r3 — addresses the [first](https://github.com/vunm-io/passdown/pull/14#issuecomment-5757998644) and [second](https://github.com/vunm-io/passdown/pull/14#issuecomment-5758817455) design reviews |
 
 **r2 changes.** (1) The serial-writer guard is replaced by an atomic
 **writer claim** keyed by the *target* repository, shared by every planner
@@ -19,6 +19,19 @@ termination**. A parent exit that cannot rule out surviving descendants stays
 **inherit the claim and the chain's root baseline**. A re-emit's no-new-writes
 check compares the chain artifact before and after it runs (§12.4). Q1–Q5 are
 resolved as the review recommended (§27).
+
+**r3 changes.** (1) Every receipt mutation is a **locked compare-and-write**
+under a per-receipt lock. `rev` is stale-client detection, not the lock.
+Claim acquire, transfer and release are specified as **crash-consistent**
+sequences: the claim file is the authority, receipt `claim` fields are
+repairable projections, and `arm` verifies the claim file (§10.4).
+(2) A `read` attempt is claim-free only with an **enforced** mutation guard
+measured in the card. Otherwise it takes the claim like a writer. The host
+does not touch a location while any attempt holds its claim (§16). (3) Claims
+are **repository-local** (`repo`, `loc:`). Ports, daemons, databases and
+global caches are not claimable, and tasks that depend on them are serialized
+by host policy (§16). Re-emit now rejects `O` before `R` is created, which
+removes the `superseded` crash window (§12.4).
 
 This document turns the accepted RFC #10 architecture into a bounded
 technical design and an implementation plan. It does not reopen the RFC.
@@ -179,6 +192,7 @@ repository.
 ```text
 <attempt_dir>/
   <attempt-id>/
+    .lock/              # receipt lock, held only inside one helper invocation (§10.4)
     receipt.json        # host-owned; mutated only through the helper
     baseline.json       # immutable after `new`: HEAD + dirty-path snapshot
                         # (for a chained attempt: a pointer to the chain root's baseline, §12.2)
@@ -245,11 +259,15 @@ reliably address files inside its own directory (Q2, resolved in §27).
 
 ```text
 $(git -C <target-repo> rev-parse --git-common-dir)/passdown/claims/
-  .mutex/               # short critical section held by one helper process (§10.4)
+  .mutex/               # claim mutex: short critical section held by one helper process (§10.4)
     owner               # helper pid + start time, for breaking a dead helper's mutex
   repo.json             # exclusive single-writer claim for the whole target repo, or absent
-  res/<resource-key>.json   # disjoint resource claims, only under a concurrency profile
+  loc/<worktree-hash>.json  # per-worktree claims, only under a concurrency profile
+  history/              # released claim files, kept for audit and projection repair
 ```
+
+The namespace holds **repository-local** keys only. Machine-global resources
+such as ports and shared caches are deliberately not claimable (§10.4, §16).
 
 The namespace is derived from `place.repo`, the repository the worker writes
 into, not from the planner. Every planner and every linked worktree that can
@@ -327,7 +345,7 @@ delegated writes in v0.5.
   "claim": {                                       // write authority, §10.4; null for kind = read
     "namespace": "/abs/target/.git/passdown/claims",
     "key": "repo",                                 // "repo", or resource keys under a profile
-    "state": "held",                               // held | transferred | released
+    "state": "held",                               // requested | held | transferred | released (projection; claim file is authoritative)
     "acquired_at": "…",
     "transferred_to": null,                        // successor attempt ID
     "released_at": null,
@@ -387,11 +405,14 @@ Rules:
   the plan, the handoff or a PR (§24).
 - No task intent is duplicated in an editable form. `task.md` is an immutable
   snapshot used only for staleness diagnostics and rehydration.
-- `rev` provides optimistic concurrency: every mutating helper call takes
-  `--rev N` and fails if the file's `rev` differs. Two hosts cannot silently
-  overwrite each other.
-- Writes are atomic: write `receipt.json.tmp.<pid>`, `fsync` where available,
-  `mv` over the old file.
+- Every mutation is a **locked compare-and-write** (§10.4). The helper takes
+  the receipt lock `<attempt dir>/.lock/`, re-reads the receipt inside the
+  lock, compares `--rev N`, validates the transition, writes `rev + 1` via tmp
+  file + `mv`, and releases the lock. `rev` detects stale clients; the lock
+  makes the check-and-write indivisible. An atomic rename alone would not:
+  two hosts that both read revision 7 would both rename a revision 8.
+- The `claim` object is a projection of the authoritative claim file in the
+  target namespace (§5.6, §10.4).
 
 ## 7. Worker result schema
 
@@ -531,7 +552,7 @@ the card; the host cannot pass a weaker evidence value.
 
 `invalid_result`, `verification_failed`, `scope_violation`, `plan_tampered`,
 `needs_input`, `blocked`, `worker_failed`, `stale`, `abandoned`, `cancelled`,
-`superseded`, `integration_failed`, `reemit_wrote`.
+`integration_failed`, `reemit_wrote`.
 
 `rejected` is a verdict on **one attempt's submission**, never on the task.
 `needs_input` and `blocked` use `rejected` because the submission is not
@@ -606,7 +627,7 @@ by the named actor; nobody edits `receipt.json` by hand.
 | `result.*` and `result.json` | Helper `result` (host-invoked) from host-captured payload | After extraction | ❌ (worker authors the *payload*, not the file) |
 | `verdict.*` except `projected_at` | Host via helper `verdict` | §12 | ❌ |
 | `verdict.projected_at` | Host via helper `projected` | After the plan edit | ❌ |
-| `claim.*` in the receipt, and the claim files under the target repo's `passdown/claims/` | Helper only, inside the claim mutex: acquired by `new`, transferred by `new --continues`, released on resolution or by `release-claim` | §10.4 | ❌ |
+| Claim files under the target repo's `passdown/claims/` (authoritative), and `claim.*` in receipts (projection) | Helper only, inside the claim mutex: acquired by `new`, transferred by `new --continues`, released on resolution or by `release-claim`; projections repaired from the claim file | §10.4 | ❌ |
 | `rev`, `transitions[]` | Helper only | Every write | ❌ |
 | Result payload (disposition, claims, evidence, question, blocker) | Worker | Final output | ✅ — this is the worker's only authored artifact besides the task's files |
 | Task text, paths, done criteria, verification | Planner (host on planner's behalf) | Plan edits | ❌ |
@@ -635,7 +656,7 @@ checks rules, writes files atomically and exits. It:
 - validates receipts and results against the v1 contracts;
 - detects stale results and invalid combinations;
 - lists attempts with a recovery class;
-- acquires, transfers and releases writer claims atomically (§10.4);
+- serializes every receipt mutation under a receipt lock (locked compare-and-write), and acquires, transfers and releases writer claims under the target's claim mutex as crash-consistent sequences (§10.4);
 - enforces the depth guard.
 
 It MUST NOT launch, signal, wait for or monitor agents; open network
@@ -671,8 +692,8 @@ Exit codes: `0` ok · `2` usage · `3` invalid transition / precondition failed 
 
 | Command | Effect |
 |---|---|
-| `new --task-ref <plan#id> --kind write\|read\|reemit\|salvage --tier current\|native\|external --reason-code <c> --reason <txt> --executor <name> --card <name@v> --place-repo <p> --isolation <i> [--location <p>] [--profile <p>] [--continues <id>] [--input <path>…]` | Allocate ID, snapshot task block + inputs + baseline (or link the chain root's baseline), acquire or transfer the writer claim, write receipt with `prepared`/`pending`, all inside the target's claim mutex. Runs the depth guard. Prints ID. |
-| `arm <id> --prompt <file>` | Store the exact prompt as `prompt.md`, then `prepared → unknown`, note `arm`. The host issues the launch command only after this returns 0, so the prompt is always on disk before a worker can exist. |
+| `new --task-ref <plan#id> --kind write\|read\|reemit\|salvage --tier current\|native\|external --reason-code <c> --reason <txt> --executor <name> --card <name@v> --place-repo <p> --isolation <i> [--location <p>] [--profile <p>] [--continues <id>] [--input <path>…] [--mutation-guard readonly:<m>\|snapshot+sandbox]` | Allocate ID, snapshot task block + inputs + baseline (or link the chain root's baseline), acquire or transfer the writer claim, write receipt with `prepared`/`pending`, all inside the target's claim mutex. Runs the depth guard. Prints ID. |
+| `arm <id> --prompt <file>` | For a claim-needing attempt, verify under the claim mutex that the claim file names this attempt (refuse otherwise). Store the exact prompt as `prompt.md`, then `prepared → unknown`, note `arm`. The host issues the launch command only after this returns 0, so the prompt is always on disk before a worker can exist. |
 | `observe <id> running --pid <n> [--pid-started <s>] [--pgid <n>] [--provider-session <s>]` | `unknown → running`. Requires identity: `pid` + start time, or a provider session ID. |
 | `observe <id> stopped --evidence <e> [--exit <code>] [--signal <s>] [--attested-by <who>]` | `unknown\|running → stopped`. Refused unless `<e>` is safe for the card (§8.3) and, for machine evidence, a fresh `probe` confirms it. If this makes the attempt resolved and no claim-holding reason applies, the claim is released in the same call. |
 | `observe <id> unknown --note <txt> [--parent-exited]` | `running → unknown` (observation lost, or parent exited without safe stop evidence; the flag sets `handle.parent_exited_at`). The claim stays held. |
@@ -694,65 +715,155 @@ Every mutating command is a single guarded transition. There is no generic
 `set <field> <value>`: a generic setter would move the transition rules back
 into prose, which is the failure mode this helper exists to prevent.
 
-### 10.4 Writer claims and guards in `new`
+### 10.4 Locks, writer claims and guards in `new`
 
 r1 used a scan-then-create guard over the planner's store. It had two holes.
-Two concurrent `new` calls could both scan an empty store and both proceed,
-because `rev` protects one receipt, not the creation of two. And two planners
-with different stores could target the same repository without seeing each
-other. r2 replaces it with a **writer claim**: an explicit record of write
-authority, stored with the target (§5.6) and changed only inside a mutex.
+Two concurrent `new` calls could both scan an empty store and both proceed.
+And two planners with different stores could target the same repository
+without seeing each other. r2 replaced it with a **writer claim**. r3 makes
+the locking underneath it precise. Every check-then-write runs under a lock,
+and a change that touches more than one file is specified as
+**crash-consistent** with one source of truth. It is not multi-file atomic,
+because separate renames cannot be.
 
-**Who needs a claim.** Every attempt that can write: `kind ∈ {write, reemit,
-salvage}`. `read` attempts take none. The host's own current-session edits
-take none, but the host MUST NOT write in a location whose claim is held by an
-attempt with ownership risk (§16).
+#### Locks
 
-**Claim keys.**
+The helper uses one primitive, a **directory lock**:
 
-- Default (no profile): the exclusive key `repo`, meaning one delegated writer
-  per target repository, whatever worktree it runs in.
-- Under a declared concurrency profile (§16): the resource keys the profile
-  declares (e.g. `loc:<worktree path hash>`, `port:5432`, `cache:gradle`).
-  A profile writer needs `repo` to be absent and each of its keys to be free.
-  A profile-less writer needs `repo` to be free **and** `res/` to be empty. A
-  profile therefore only replaces the single-writer claim with explicit,
-  disjoint resource claims, never with nothing.
-
-**Mutex.** Every claim operation (acquire, transfer, release, dangling
-reclaim) runs inside `claims/.mutex/`:
-
-1. `mkdir claims/.mutex`. POSIX `mkdir` is atomic, so exactly one helper
-   process succeeds. The winner immediately writes `owner` (its own pid and
-   start time).
+1. `mkdir <lockdir>`. POSIX `mkdir` is atomic, so exactly one helper process
+   succeeds. The winner immediately writes `<lockdir>/owner` with its own pid
+   and start time.
 2. If `mkdir` fails, retry with backoff for up to 10 s. If the existing
-   `owner` is a dead process (pid gone, or the start time differs), or has no
-   `owner` file and is older than 30 s, remove it and retry. This is safe
-   because only helper processes hold the mutex, and each holds it for one
-   short critical section. It is never held by a worker or across a launch.
-3. Inside the mutex: check the needed keys. Write the claim file(s) and the
-   new receipt (with `claim.state = held`), both atomically (tmp + `mv`),
-   **before** leaving the mutex. Then `rmdir` it.
+   `owner` is a dead process (pid gone, or the start time differs), or there
+   is no `owner` file and the lock is older than 30 s, remove the lock and
+   retry. This is safe because only helper processes hold these locks, each
+   for one short critical section inside a single invocation. A lock is never
+   held by a worker or across a launch.
+3. Release with `rmdir` (after removing `owner`).
 
-Consequences:
+Two kinds of lock exist:
 
-- **Two simultaneous `new` calls cannot both acquire the same key.** The
-  second one enters the mutex after the first has written its claim, and it
-  gets exit 6 with the holder's attempt ID and store path.
-- **All planners share the domain.** The namespace is the target's Git common
-  dir, which every planner and every linked worktree resolves the same way.
-- **Process exit releases nothing.** A claim changes only through the helper,
-  on the conditions below. No lease or timeout ever expires a claim, because
-  an expired lease on a live writer is precisely the duplicate-writer bug.
-- **Dangling claims.** A crash inside `new` after the claim file is written
-  but before the receipt is written leaves a claim whose holder receipt does
-  not exist. The holder was never armed (`arm` needs the receipt), so it never
-  launched. The next acquirer, inside the mutex, may reclaim it and logs that
-  it did. A claim whose holder *store* is unreadable (deleted clone, unmounted
-  disk) is **not** reclaimed automatically. It needs `release-claim
-  --attested-by`.
+| Lock | Path | Protects |
+|---|---|---|
+| **Claim mutex** | `<target common dir>/passdown/claims/.mutex/` | All claim files of one target repository |
+| **Receipt lock** | `<attempt dir>/.lock/` | That attempt's `receipt.json` and sibling files |
 
-**Release.** A claim is released only:
+**Lock order** (prevents deadlock): the claim mutex first, if the operation
+touches claims; then receipt locks in ascending attempt-ID order. Every
+invocation takes all its locks up front and releases them before exiting.
+
+**Every receipt mutation is a locked compare-and-write:**
+
+1. acquire the receipt lock (and the claim mutex first, if claims are
+   involved);
+2. re-read `receipt.json` **inside** the lock;
+3. compare `--rev` with the file's `rev`, and exit 5 on mismatch;
+4. validate the transition against the re-read state;
+5. write `rev + 1` atomically (tmp file, `fsync` where available, `mv`);
+6. release the locks.
+
+`rev` is therefore **stale-client detection**: a host that read revision 7
+cannot apply a change planned against it after someone else wrote revision 8.
+The lock is what makes the check-and-write indivisible. Races such as
+`cancel` vs `observe`, a recovering host vs the original host, or `result` vs
+another mutation all serialize on the receipt lock. The loser gets exit 5 and
+re-reads.
+
+#### Writer claims
+
+**Source of truth.** The claim file in the target namespace (§5.6) is
+**authoritative** for current write ownership. The `claim` object in each
+receipt is a **projection** of it. When the two disagree the claim file wins,
+and the helper repairs the projection (see *Projection repair* below).
+
+**Who needs a claim.** Every attempt whose execution surface **can mutate the
+target**:
+
+- `kind ∈ {write, reemit, salvage}`, always;
+- `kind = read`, **unless** its mutation guard is enforced (§16): the worker
+  runs under an executor mode that the card measured as unable to write the
+  target (a read-only mode or a sandbox confining writes to a separate
+  snapshot). A read attempt without an enforced guard is treated as a
+  potential writer and must acquire the claim like one. While another attempt
+  holds the claim it is refused (fixture F24).
+
+**Claim keys (r3: repository-local only).** Claims coordinate resources that
+belong to the target repository, and nothing else:
+
+- Default (no profile): the exclusive key `repo`. One claim-holding attempt
+  per target repository, whatever worktree it runs in.
+- Under a declared concurrency profile (§16): the key `loc:<worktree path
+  hash>`, one per attempt's own worktree. A profile attempt needs `repo` to be
+  absent and its `loc:` key to be free. A profile-less attempt needs `repo` to
+  be free **and** no `loc:` keys to be held. A profile only replaces the
+  single-writer claim with disjoint per-worktree claims, never with nothing.
+
+Machine- or workspace-global resources (ports, daemons, databases, shared
+mutable caches) are **not** claimable in v0.5. The target's namespace cannot
+coordinate them across repositories, so offering `port:` or `cache:` keys
+would promise isolation the mechanism cannot deliver. Tasks that depend on
+such resources are not eligible for concurrency profiles and follow the host
+serialization rule in §16. The helper rejects a profile that declares any key
+other than `loc`.
+
+**Claim states in the receipt projection:** `requested` (the receipt exists,
+the claim file does not name it yet) · `held` · `transferred` · `released`.
+
+**Acquire (`new`, no predecessor).** Under the claim mutex:
+
+1. write the new receipt with `claim.state = requested`. The receipt exists
+   first, so a claim can never name an attempt without a receipt;
+2. check the keys. If they are taken, delete the new attempt directory and
+   exit 6, naming the holder and its store;
+3. write the claim file naming the new attempt (tmp + `mv`). **This is the
+   commit point**;
+4. set the receipt projection to `held`.
+
+**Transfer (`new --continues P`, when `P` holds the claim).** Under the claim
+mutex, with the receipt locks of `P` and the new attempt `S`:
+
+1. write `S` with `claim.state = requested`;
+2. atomically replace the claim file so that it names `S` instead of `P`
+   (tmp + `mv`). **This is the commit point**;
+3. set `S.claim.state = held`;
+4. set `P.claim.state = transferred` and `P.claim.transferred_to = S`.
+
+**Release.** Under the claim mutex, with the holder's receipt lock:
+
+1. move the claim file to `claims/history/<attempt-id>.<n>.json`. **This is
+   the commit point**;
+2. set the holder's projection to `released`, with `released_at` and
+   `release_basis`.
+
+**Armability.** `arm` of any claim-needing attempt MUST verify, under the
+claim mutex, that the claim file currently names this attempt. It refuses
+otherwise, even if the attempt's own projection says `held`. At most one
+attempt per claim key can therefore ever be launched, whatever state the
+projections are in after a crash.
+
+**Projection repair.** Every helper invocation that takes a claim mutex first
+reconciles the projections of the attempts named in that namespace, and
+`validate` reports mismatches without repairing them (pickup stays
+read-only). The rules are deterministic because the claim file is the
+authority:
+
+| Claim file | Projection found | Repair |
+|---|---|---|
+| names `S` | `S.requested` | `S → held` |
+| names `S` | `P.held`, where `P` is `S.continues` | `P → transferred (to S)` |
+| does not name `X` | `X.requested`, `X` still `prepared` | `X → released`, `release_basis = never-committed`. `X` was never armable; pickup shows it as C1 |
+| does not name `X`, and `claims/history/` has `X`'s release | `X.held` | `X → released` |
+| does not name `X`, no history entry | `X.held` | **Not repaired.** Reported as an inconsistency that needs owner attention (the claim file was removed outside the helper) |
+
+Repair touches receipt projection fields only, and each touch is appended to
+`transitions[]`.
+
+Crash consistency, step by step: after any prefix of the acquire, transfer or
+release sequence, (a) the claim file names at most one attempt per key, (b)
+only that attempt can pass `arm`, and (c) repair brings every projection into
+agreement. F23 kills the helper after each sub-step and asserts (a)–(c).
+
+**Release conditions.** A claim is released only:
 
 - by the helper call that makes its holder **resolved** (§8.5), when the
   verdict reason does not hold the claim (§8.4). In practice that is
@@ -760,32 +871,37 @@ Consequences:
   already-rejected attempt;
 - by `release-claim --attested-by` on a **stopped** holder;
 - never while the holder has ownership risk (`running`/`unknown`, which
-  includes a parent that exited without safe stop evidence, §8.3).
+  includes a parent that exited without safe stop evidence, §8.3);
+- never by a process exit, and never by elapsed time. No lease ever expires a
+  claim, because an expired lease on a live writer is precisely the
+  duplicate-writer bug.
 
-**Transfer.** `new --continues <P>` transfers the claim from `P` to the new
-attempt inside the mutex when `P` still holds it: `P.claim.state =
-transferred`, `transferred_to = <new>`, and the claim file names the new
-holder. There is no window in which another writer can take the location
-between the two attempts. Transfer is the only way a re-emit, a salvage, or a
-continuation after `needs_input`/`blocked` gets write authority over its
-predecessor's leftover output.
+A claim whose holder *store* is unreadable (deleted clone, unmounted disk) is
+never released automatically. It needs `release-claim --attested-by`.
 
-**Other guards in `new`.**
+**Transfer is the only way** a re-emit, a salvage, or a continuation after
+`needs_input`/`blocked` gets write authority over its predecessor's leftover
+output. There is no window in which another attempt can take the key between
+the two.
+
+#### Other guards in `new`
 
 - **Continuation guard.** `--continues <P>` requires `P.observation =
   stopped` (safe). By kind:
   - `write` (continuation after `needs_input`/`blocked`): `P` is rejected with
     that reason and still holds the claim;
-  - `reemit`: `P` is `stopped` + `pending` with no valid result and holds the
-    claim;
-  - `salvage`: `P` is `stopped` and rejected `invalid_result` /
-    `reemit_wrote` / `integration_failed`, or `stopped` + `pending`, and holds
-    the claim.
+  - `reemit`: `P` is rejected `invalid_result` (§12.4), still holds the claim,
+    and its chain contains no re-emit;
+  - `salvage`: `P` is rejected `invalid_result` / `reemit_wrote` /
+    `integration_failed` and still holds the claim.
 
   If `P` no longer holds the claim (it was released), the continuation
-  acquires a fresh claim like any other writer.
+  acquires a fresh claim like any other attempt.
 - **Re-emit guard.** `kind = reemit` requires the chain to contain no earlier
   `reemit` (I-17).
+- **Read guard.** `kind = read` requires `--mutation-guard <enforced
+  mechanism>` naming a guard that the executor card marks `verified`, or else
+  it acquires a claim (see *Who needs a claim*).
 - **Depth guard.** Refuse `--tier external` when the environment variable
   `PASSDOWN_ATTEMPT` is non-empty (the host exports it into every worker it
   launches). This is best effort, because a provider may not propagate the
@@ -794,11 +910,11 @@ predecessor's leftover output.
 There is no `--force` on any guard.
 
 **Limits.** `mkdir` atomicity is the POSIX local-filesystem guarantee. A Git
-common dir on a network filesystem with weak `mkdir` semantics is outside the
-v0.5 guarantee, and the helper warns when it detects one (`df -T`/`stat -f`
-type check where available). Claims coordinate Passdown helpers. They do not
-stop a human, or a tool that ignores Passdown, from writing into the same
-checkout (§24).
+common dir or attempt store on a network filesystem with weak `mkdir`
+semantics is outside the v0.5 guarantee, and the helper warns when it detects
+one (`df -T`/`stat -f` type check where available). Claims coordinate Passdown
+helpers. They do not stop a human, or a tool that ignores Passdown, from
+writing into the same checkout (§24).
 
 ## 11. Dispatch lifecycle
 
@@ -996,14 +1112,22 @@ fresh baseline made a correct no-write re-emit look like an empty artifact,
 and a live re-emit was invisible to the writer guard. In r2 a re-emit is a
 chained attempt with inherited authority and an inherited artifact:
 
-1. **Preconditions.** Original attempt `O` is safely `stopped`, `inspect`ed
-   with chain artifact `D`, `O.verdict = pending`, `O` holds the writer claim,
-   and no re-emit exists in `O`'s chain.
-2. **Create.** `attempt new --kind reemit --continues O` → `R`. Inside the
-   claim mutex the claim transfers `O → R`, so `R` holds write authority while
-   it runs and blocks every other writer (§10.4). `R` shares `O`'s chain
-   baseline and location, and records `artifact.expected = D`. `O` stays
-   `pending`.
+1. **Close `O` first.** `O` is safely `stopped` and `inspect`ed with chain
+   artifact `D`. The host records `verdict O reject --reason-code
+   invalid_result`. `O`'s result is invalid whatever the re-emit later
+   produces, so this verdict is final at once. `invalid_result` holds the
+   claim (§8.4), so `O` keeps write authority over its output.
+   (r3: in r2, `O` stayed `pending` until `R` was accepted and was then marked
+   `superseded`. A crash between those two writes left `O` unresolved next to
+   an accepted `R`. Recording `O`'s verdict before `R` exists removes that
+   window, and the `superseded` reason code is dropped.)
+2. **Create.** `attempt new --kind reemit --continues O` → `R`. Precondition:
+   `O` is rejected `invalid_result`, holds the claim, and no re-emit exists in
+   its chain. The claim transfers `O → R` as a crash-consistent sequence
+   (§10.4), so `R` holds write authority while it runs and blocks every other
+   claim-needing attempt. `R` shares `O`'s chain baseline and location, and
+   records `artifact.expected = D`. The link from `O` to `R` is
+   `O.claim.transferred_to` plus `R.continues`.
 3. **Arm and launch.** `arm R` computes `artifact.at_arm`. If it differs from
    `D`, something changed the location after `O`'s inspection, and `arm`
    refuses. The host investigates first. The prompt asks **only** for the
@@ -1013,17 +1137,17 @@ chained attempt with inherited authority and an inherited artifact:
    `inspect.json`.
 4. **After `R` is safely stopped.** `inspect R` computes the chain artifact
    again.
-   - Digest ≠ `D`: `R` wrote. Reject `R` with `reemit_wrote` and `O` with
-     `invalid_result`. `R` keeps the claim (claim-holding reason) for salvage
-     or attested release. Stop.
-   - Digest = `D` but `R`'s result is invalid: reject `R` and `O` with
+   - Digest ≠ `D`: `R` wrote. Reject `R` with `reemit_wrote`. `R` keeps the
+     claim (claim-holding reason) for salvage or attested release. Stop.
+   - Digest = `D` but `R`'s result is invalid: reject `R` with
      `invalid_result`. `R` keeps the claim. Stop.
    - Digest = `D` and `R`'s result is valid: continue.
 5. **Accept.** The acceptance lifecycle runs **on `R`**, whose artifact is the
    chain artifact `D`, meaning `O`'s submission measured against `O`'s
-   baseline, not an empty delta. On acceptance, `O` is rejected with
-   `superseded` and a pointer to `R`. The plan's `Dispatched:` line names `R`,
-   and `projected R` releases the claim.
+   baseline, not an empty delta. The plan's `Dispatched:` line names `R`, and
+   `projected R` releases the claim. `O` was already resolved in step 1, so no
+   write to `O` follows `R`'s acceptance and there is no crash window between
+   them.
 6. **If `R` never reaches a safe stop.** It stays `unknown` and holds the
    claim, and no other writer can start (fixture F22).
 
@@ -1074,7 +1198,7 @@ on its own") and keeps its tests simple.
 | **C7 stale** | any unresolved attempt whose task/input digest no longer matches | Per observation | If ownership risk: handle as C2/C3 first. Then reject `stale`. New work = new attempt. |
 | **C8 cancel unconfirmed** | `cancel_requested_at` set, observation `running`/`unknown` | **Yes** | `probe`; escalate the cancel method per card; confirm stop only with safe evidence (§8.3). A parent that exited after the signal while descendants cannot be ruled out is still C8. Until then the claim stays held and no other writer can start. |
 | **C9 orphaned** | unresolved, `host.session ≠` current and no update for longer than the card's budget, and not named in the latest handoff's `open_attempts` | Per observation | Surface prominently with age and location; then classify as C1–C8. |
-| **C10 interrupted continuation** | unresolved attempt with `continues ≠ null` | Per observation | Show the chain; resolve the newest link as C1–C8. The claim is with the newest link (transfer is atomic, §10.4). The predecessor's question/answer are in its receipt/result; nothing is re-asked. |
+| **C10 interrupted continuation** | unresolved attempt with `continues ≠ null` | Per observation | Show the chain; resolve the newest link as C1–C8. The claim file names the newest link whose transfer committed; projections are repaired from it (§10.4). The predecessor's question/answer are in its receipt/result; nothing is re-asked. |
 | **C11 claim without a live holder** | `claims` shows a key held by an attempt that is stopped and resolved-with-holding-reason, or whose store is unreadable | No, if the holder is stopped. **Unknown** if the store is unreadable | Holder stopped: propose a follow-up (continuation / salvage) or `release-claim`. Store unreadable: surface as ownership risk; `release-claim --attested-by` only after the owner confirms no writer. A dangling claim from a crash inside `new` is reclaimed by the next `new` automatically (§10.4) and only reported. |
 
 Pickup reads claims in **every target repository** named by an unresolved
@@ -1117,7 +1241,7 @@ delegated task whose attempt is unresolved.
 O: worker returns needs_input (question)      [O safely stopped, result valid]
    host: inspect O; reject O (needs_input)    [O resolved; O keeps the claim: needs_input is claim-holding]
    host/user: answer the question             [answer recorded in C's receipt]
-C: attempt new --continues O --input <answer file>   [claim transfers O → C atomically]
+C: attempt new --continues O --input <answer file>   [claim transfers O → C, crash-consistent (§10.4)]
    prompt = task + question + answer (+ "O's partial writes are present" if any)
    launch: resume provider session if card.resume = verified, else fresh invocation rehydrated from files
    normal lifecycle §11–§12
@@ -1165,9 +1289,9 @@ Scheduling is **serial by default**. Isolation is chosen per attempt:
 
 | Class | Conditions (all required) | Isolation |
 |---|---|---|
-| **Read-only** | Task writes nothing (review, analysis) | `read-only`; no worktree. The host may give the worker a frozen snapshot. `kind = read`. |
+| **Read-only** | Task writes nothing (review, analysis) | `read-only`, `kind = read`; no worktree. **Claim-free only with an enforced mutation guard** (below); otherwise the attempt takes the claim like a writer |
 | **Simple repo-file edit** | External writer; task inputs committed at `base_commit`; task needs no uncommitted context; no environment bootstrap (no installs, services, `.env`, generated inputs); no shared mutable build/service state; worktree location authorized; card toolchain preflight passes in the worktree | `worktree` — one fresh worktree per attempt, still scheduled serially |
-| **Resource-coupled or uncertain** | Anything else (Flutter/Gradle/Cargo caches and daemons, package installs, databases, ports, `.env`, generated outputs, uncommitted local context) | `current-checkout`, one attributable writer, baseline captured. The host does not edit the location while the claim is held by an attempt with ownership risk |
+| **Resource-coupled or uncertain** | Anything else (Flutter/Gradle/Cargo caches and daemons, package installs, databases, ports, `.env`, generated outputs, uncommitted local context) | `current-checkout`, one attributable writer, baseline captured. The host does not edit the location while any attempt holds its claim (see *Host writes* below) |
 | **Concurrent writers** | Separate worktrees **and** a declared, validated resource-isolation profile | `worktree` + `profile` |
 
 Worktree mechanics:
@@ -1198,20 +1322,70 @@ receipt's first transition note): inputs committed (`git status --porcelain --
 `toolchain_check` passes inside the worktree. Any failure ⇒ fall back to
 `current-checkout` **before** `attempt new`, never mid-attempt.
 
-Concurrency profiles live in the workspace's `## passdown` config:
+**Read-only mutation guard.** Intending a task as review or analysis does not
+make the executor unable to write. A read attempt may skip the writer claim
+only when its execution surface is **enforced** non-mutating with respect to
+the target, using a mechanism the executor card marks `verified`
+(`capabilities.read_only_mode` or `capabilities.sandbox_confined_writes`):
+
+- `readonly:<mechanism>`: the executor runs in a measured read-only mode (for
+  example a permission policy or agent definition that removes write tools),
+  and the card records how that was tested;
+- `snapshot+sandbox`: the worker gets a **separate copy** of the inputs (a
+  `git archive` export outside the target, with no `.git` link back), **and**
+  a measured sandbox confines its writes to that copy. A copy alone is not
+  enough: a worker with unrestricted filesystem tools can still write the
+  target by absolute path.
+
+Without one of these, `kind = read` acquires the claim and is refused while
+another attempt holds it. In every case the helper also records a digest of the
+target's working tree (tracked plus untracked-not-ignored content, against
+`HEAD`) at `arm` and again after the stop. A change is
+reported as `plan_tampered` / `scope_violation` and turns a claim-free read
+into an incident in the briefing: detection behind the prevention (F24).
+
+This also sharpens Q3 (§27). Receipt presence and claim need are separate
+questions. A read task that participates in canonical completion needs a
+receipt. It can still be claim-free only if mutation is technically
+prevented.
+
+**Host writes.** While **any** attempt holds a location's claim, not only
+while one has ownership risk, the host does not mutate that attempt's
+`place.location`. Claim-holding verdicts (`needs_input`, `blocked`,
+`invalid_result`, `reemit_wrote`, `integration_failed`) exist precisely to
+keep the chain's artifact attributable across follow-up attempts. A host edit
+in between would contaminate it. If the host needs to change that location, it
+does so through an attempt that receives the claim by transfer (a salvage, or
+a `--tier current` continuation), or it runs `release-claim` first and gives
+up the leftover output. The practical consequence: when the host wants to keep
+working in its own checkout during a delegated attempt, it should give that
+attempt a worktree.
+
+**Concurrency profiles (r3: repository-local only).** A profile lives in the
+workspace's `## passdown` config:
 
 ```markdown
 - concurrency_profiles:
-  - docs-only: resources [loc]; tested 2026-10-02 (docs/evidence/…)
-  - web-frontend: resources [loc, port:5173, cache:npm]; tested …
+  - docs-only: tested 2026-10-02 (docs/evidence/…) — edits only repo files, no build, no services
 ```
 
-A profile declares the resource keys each attempt under it claims. `loc` is
-expanded to that attempt's own worktree location. v0.5 ships **no** built-in
-profiles; the helper checks that the named profile is declared and claims its
-keys (§10.4). Without a profile, every delegated writer to a target repository
-takes the exclusive `repo` claim. That claim is the mechanism behind the "zero
-silent duplicate overlapping writers" gate.
+A profile states that attempts under it use **only worktree-local
+resources**: no ports, daemons, databases or shared mutable caches. Each
+attempt under a profile claims `loc:<its worktree>` instead of the exclusive
+`repo` key (§10.4). The helper rejects a profile that declares any other key.
+v0.5 ships **no** built-in profiles. Without a profile, every claim-needing
+attempt against a target repository takes the exclusive `repo` claim. That
+claim is the mechanism behind the "zero silent duplicate overlapping writers"
+gate.
+
+**Machine-global resources are host policy, not claims.** Tasks that depend
+on shared ports, daemons, databases or mutable global caches are
+*resource-coupled*. They are never eligible for a concurrency profile. A host
+does not run such an attempt while **any** other delegated attempt it
+launched (in any target repository) has ownership risk. This is enforced in
+the dispatch prose, and the helper can report it (`list` shows the host's
+attempts with ownership risk across stores it knows). Coordinating two
+independent hosts on one global resource is outside v0.5 (§23).
 
 ## 17. Routing policy
 
@@ -1272,6 +1446,8 @@ capabilities:                   # each: verified | unsupported | unverified
   exit_code_meaningful: unverified
   descendants_may_outlive: unverified
   cancel_signal_honored: unverified
+  read_only_mode: unverified      # a mode that removes write capability; needed for a claim-free read (§16)
+  sandbox_confined_writes: unverified  # writes confined to the working copy; needed for snapshot+sandbox reads
 invocation:
   headless: 'kiro-cli chat --no-interactive <trust flags> "<prompt>"'
   output_capture: stdout        # or: stream-json lines, file, …
@@ -1391,7 +1567,7 @@ Layer A failure.
 | F1 | Unauthorized worker checkbox edit | `tick-checkbox` | `inspect.plan_touched = true`; host restores per PDN-0003 or stops; verdict `rejected/plan_tampered` or scoped override; no `[x]` without a persisted verdict |
 | F2 | Forged `accepted` + `[x]`, then host crash | `forge-accepted` writes `[x]` and a `Dispatched: … accepted; verified: …` line; crash `after-result` | Pickup: task has an unresolved attempt ⇒ not accepted; plan line flagged *inconsistent*; zero false acceptance |
 | F3 | Worker edits its own done criteria / verification | mode edits the task block | Task digest mismatch ⇒ `stale`/`plan_tampered`; accept refused |
-| F4 | Malformed result, successful no-write re-emit | `malformed-result`, then re-emit in mode `ok-no-write` | `O` invalid; `new --kind reemit --continues O` succeeds even though `O` is `stopped` + `pending` (claim transfers `O → R`); `R.at_arm = R.digest = D`; acceptance on `R` with artifact `D` (not an empty delta); `O` `superseded`; claim released at `projected R`; a second re-emit in the chain refused |
+| F4 | Malformed result, successful no-write re-emit | `malformed-result`, then re-emit in mode `ok-no-write` | `O` rejected `invalid_result` while keeping the claim; `new --kind reemit --continues O` succeeds and the claim transfers `O → R`; `R.at_arm = R.digest = D`; acceptance on `R` with artifact `D` (not an empty delta); crash after `verdict R accept` leaves `O` already resolved and `R` as C6; claim released at `projected R`; a second re-emit in the chain refused |
 | F5 | Re-emit that writes | re-emit run in `write-then-sleep` | Digest ≠ `D` ⇒ `R` `reemit_wrote`, `O` `invalid_result`; nothing accepted; `R` keeps the claim; salvage `--continues R` receives it by transfer |
 | F6 | Stale result | Planner edits task text while the worker runs | Accept refused; `stale`; new attempt required |
 | F7 | Scope violation | `write-outside-scope` | `out_of_scope` non-empty; `rejected/scope_violation` |
@@ -1412,9 +1588,12 @@ Layer A failure.
 | F20 | Depth guard | worker environment has `PASSDOWN_ATTEMPT`; worker calls `new --tier external` | Helper exit 6 |
 | F21 | Two planner repos, one target | planners `P1` and `P2` (separate stores) both dispatch writers into target `T`, concurrently and sequentially | Only one claim on `T`'s namespace at a time; `P2`'s refusal names `P1`'s attempt and store; `P2`'s pickup shows the foreign claim |
 | F22 | Second writer while a re-emit is live | re-emit `R` in `hang`; another `new` for `T` | Exit 6 (`R` holds the transferred claim) |
-| F23 | Re-emit after `O` is `stopped` + `pending` | the normal re-emit precondition, including a crash right after `new --kind reemit` | Transfer is atomic: after the crash the claim names either `O` (transfer not committed) or `R` (committed), never neither and never both |
+| F23 | Crash at each claim sub-step | Kill the helper after every sub-step of acquire (receipt `requested` → claim file → `held`), transfer (`S requested` → claim file switch → `S held` → `P transferred`) and release (claim → history → projection) | After every crash point: the claim file names at most one attempt per key; exactly the named attempt can pass `arm` (all others refused); the next claim operation repairs projections to agree with the claim file; a never-committed attempt is surfaced as C1 |
+| F24 | Supposed read-only worker writes | fake executor `read-but-writes` while another attempt holds `repo`: (a) no enforced guard; (b) card-declared guard with the harness simulating confinement | (a) `new --kind read` must acquire the claim → exit 6, never launched; (b) launched claim-free, the write lands in the snapshot only, target digest unchanged; with the confinement simulation disabled, the target-digest check reports the incident |
+| F25 | Receipt compare-and-write race | Two helpers apply `cancel` and `observe` (and, separately, `result` and `observe`) concurrently to one receipt, both planned from the same `rev` | Exactly one succeeds, the other exits 5; the final receipt has consecutive `rev` values and a transition log with no lost write |
+| F26 | Profile with a global key | Profile declares `port:5432` | Helper rejects the profile; no claim is written |
 
-**Release gate:** all of Layer A green in CI (F19 and F21 run in a
+**Release gate:** all of Layer A green in CI (F19, F21, F23 and F25 run in a
 concurrency stress job); Layer B run for at least F1, F2, F4, F8, F10–F15 and
 F18 with zero false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
 post-release measurement, not a gate.
@@ -1475,11 +1654,13 @@ back-filled. Receipts are never fabricated for past work.
 | PID reuse | Probe mistakes another process for the worker | Start-time binding (`ps -o lstart`); mismatch ⇒ `unknown` |
 | Provider leaves detached writers | A writer outlives the parent | Parent exit alone is never `stopped` unless measured safe (§8.3); the claim stays held. Residual risk: a **wrong** card that says `unsupported`. The settle double-inspection catches writes inside the settle window (F18b); later writes are not caught |
 | Concurrent `new` calls | Two writers | Claim mutex in the target repo (§10.4); F19 stress |
-| Helper killed while holding the claim mutex | Claims blocked | Mutex owner is a pid + start time; a dead owner's mutex is broken by the next helper (§10.4) |
-| Crash inside `new` after the claim, before the receipt | Dangling claim | Reclaimed inside the mutex by the next acquirer; the holder never armed |
+| Helper killed while holding the claim mutex or a receipt lock | Claims or that receipt blocked | Lock owner is a pid + start time; a dead owner's lock is broken by the next helper (§10.4) |
+| Helper killed in the middle of acquire / transfer / release | Receipt projections disagree with the claim file | The claim file is authoritative and only its named attempt can `arm`; the next claim operation repairs projections (§10.4, F23) |
+| Two independent hosts use one global resource (port, daemon, shared cache) from different repos | Interference outside Passdown's view | Not coordinated in v0.5: claims are repository-local. Within one host, resource-coupled attempts are serialized by host policy (§16). Documented limit |
+| Read-only worker writes the target | Unclaimed overlapping write | Claim-free reads require an enforced, card-verified guard; target digest checked at `arm` and after stop (§16, F24) |
 | Git common dir on a network filesystem | `mkdir` may not be atomic | Outside the v0.5 guarantee; the helper warns |
 | Ignored-file output | Not in the artifact digest | Documented limit; tasks that must produce ignored output state it in done criteria and the host check covers it |
-| Two hosts on one store | Clobbered receipts | `rev` optimistic concurrency per receipt; write authority comes from claims, not from the store |
+| Two hosts mutate one receipt | Lost update | Locked compare-and-write under the receipt lock; the loser gets exit 5 (F25) |
 | Clock skew between hosts | Confusing ordering | IDs sort by creation per machine only; recovery never depends on cross-machine ordering |
 | Worker never emits JSON | No valid result | C5; one re-emit; salvage |
 | Result payload very large / hostile | Parser abuse | Size cap, strict schema, no evaluation of worker strings |
@@ -1527,6 +1708,12 @@ back-filled. Receipts are never fabricated for past work.
 | Scan-then-create writer guard over the planner store (r1) | Not atomic across concurrent `new` calls; blind to other planners targeting the same repo (first review, blocker 1) |
 | Writer claim in the planner's attempt store | Different planners have different stores; the target is the shared resource |
 | Claim leases that expire | An expired lease on a live writer is the duplicate-writer bug |
+| `rev` check + atomic rename without a lock (r2) | Not a compare-and-swap: two writers that read the same `rev` both rename (second review, blocker 1) |
+| Calling the claim transfer multi-file atomic (r2) | Separate renames cannot be atomic together; r3 names one authority and a write order instead (second review, blocker 1) |
+| Claim-free read attempts based on task intent (r2) | Intent does not remove write capability (second review, blocker 2) |
+| Global resource keys (`port:`, `cache:`) in the target repo's namespace (r2) | Coordinates them only within one repo (second review, blocker 3) |
+| A separate machine-wide claim namespace for global resources | Possible later; for v0.5 it widens the helper's scope, and serializing resource-coupled work by host policy matches the RFC's "serialize unless isolation is validated" |
+| Keeping `O` pending until the re-emit is accepted (r2) | Crash window between accepting `R` and superseding `O` |
 | `flock(1)` for the mutex | Not shipped on macOS (measured: no `flock` on this macOS 26.6 host); `mkdir` is atomic everywhere Bash runs |
 | Parent exit + settle window as "stopped" (r1) | Cannot rule out a detached writer that writes after the window (first review, blocker 2) |
 | Re-emit as an ordinary delta attempt with a fresh baseline (r1) | Blocked by its own predecessor, reports an empty artifact for a correct re-emit, invisible to the writer guard (first review, blocker 3) |
@@ -1586,14 +1773,18 @@ ships it.
   bundled copies, conformance vs S1 schemas), `scripts/doctor.sh` (`jq` check).
 - Acceptance: every §10.3 command; every allowed/forbidden transition in §8,
   including the refusal of unsafe stop evidence per card (§8.3); writer
-  claims: mutex, acquire, atomic transfer, release-on-resolution, dangling
-  reclaim, dead-mutex break, profile keys vs the exclusive `repo` key (§10.4);
+  locked compare-and-write on every receipt mutation; claims: mutex, acquire,
+  crash-consistent transfer and release with projection repair, `arm`
+  verifying the claim file, release-on-resolution, dead-lock break, `loc:`
+  keys vs the exclusive `repo` key, rejection of non-`loc` profile keys,
+  claim-free reads only with a verified guard (§10.4, §16);
   chain baseline and `at_arm`/`digest` (§12.2); §12.1/§12.2 digests stable
   across runs and platforms (macOS + Linux CI, plus the Windows job with `jq`
   supplied); atomic write + `rev` conflict; helper never edits plans (test
   asserts plan bytes unchanged).
 - Tests: table-driven transition tests; claim race stress (parallel `new`,
-  the F19 core) already at this slice; digest golden files; conformance vs S1
+  the F19 core), the crash-point sweep (F23 core) and the receipt CAS race
+  (F25 core) already at this slice; digest golden files; conformance vs S1
   fixtures; bash 3.2 run.
 - Independent merge: yes — bundled but unreferenced by skill prose.
 - Rollback: revert; skills unaffected.
@@ -1601,7 +1792,7 @@ ships it.
 **S3 — Behavioral harness, Layer A.**
 - Files: `tests/harness/fake-executor`, `tests/harness/ref-host`,
   `tests/interrupt.sh`, CI step.
-- Acceptance: F1–F23 (with F18b, F19b) implemented against the helper; oracles for false
+- Acceptance: F1–F26 (with F18b, F19b) implemented against the helper; oracles for false
   acceptance and overlapping writers; the suite fails when a guard is disabled
   (mutation check: run once with the claim check stubbed out and expect
   failure).
@@ -1667,7 +1858,10 @@ adopts each disposition:
   task completion. A delegated read-only task whose result or evidence can
   complete a plan task (a review task, an analysis task with its own
   checkbox) requires a receipt, so acceptance and recovery have one path.
-  `kind = read` takes no writer claim.
+  Advisory work may omit the receipt only if it also cannot mutate canonical
+  state. Receipt and claim are separate questions (r3): a receipt-bearing
+  `read` is claim-free only with an enforced, card-verified mutation guard
+  (§16).
 - **Q4 — `needs_input` as `rejected`: resolved.** Kept internally, with the
   reason code mandatory and rendered to humans as the reason ("needs input"),
   never as a bare "rejected" (§8.4).
