@@ -17,6 +17,12 @@
 set -euo pipefail
 
 PASSDOWN_VERSION="0.5.0-beta.1"
+
+# Git Bash on Windows rewrites arguments that look like POSIX paths before a
+# native program (jq.exe) sees them: `--arg p /holder` would arrive as
+# `C:/Program Files/Git/holder`. Receipts store POSIX paths verbatim.
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
+
 HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # Exit codes (design section 10.3).

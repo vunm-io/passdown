@@ -17,6 +17,8 @@ helper="$repo_root/scripts/passdown-attempt"
 fixtures="$repo_root/tests/fixtures/attempt"
 export PASSDOWN_EXECUTOR_REFS="$fixtures/cards"
 unset PASSDOWN_ATTEMPT PASSDOWN_ATTEMPT_DIR PASSDOWN_TEST_CRASH_AT
+# Keep Git Bash on Windows from rewriting "/pointer" arguments to jq.exe.
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
 
 tests_run=0
 fail() { echo "FAIL: $*" >&2; exit 1; }
