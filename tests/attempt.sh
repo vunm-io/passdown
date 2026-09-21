@@ -99,10 +99,13 @@ echo "all good" >"$check_ok"
 # spawn <command>: start a fake worker in its own process group; sets $wpid.
 # The worker waits briefly first so the host can observe it running, as a
 # real worker would still be starting up.
+# Its start time is read right away, as a host does at launch, so a worker
+# that exits before `observe running` is still bound to its pid.
 spawn() {
   perl -e 'setpgrp(0, 0); exec @ARGV' sh -c "sleep 0.5; $1" &
   wpid=$!
   spawned+=("$wpid")
+  wstart="$(ps -o lstart= -p "$wpid" | sed 's/^ *//; s/ *$//')"
   sleep 0.1
 }
 
@@ -127,7 +130,7 @@ drive() {
   local id="$1" cmd="$2" r
   ok "arm $id" --store "$store" arm "$id" --rev "$(rev "$id")" --prompt "$prompt_file"
   spawn "$cmd"
-  ok "observe running $id" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pgid "$wpid"
+  ok "observe running $id" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid"
   wait "$wpid" || true
   ok "observe stopped $id" --store "$store" observe "$id" stopped --rev "$(rev "$id")" \
     --evidence owner-attested --attested-by tester --exit 0
@@ -272,7 +275,7 @@ group_transitions() {
   pass "unknown: no second arm, no abandon, bare exit is not stop evidence"
 
   spawn "sleep 30"
-  ok "running" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pgid "$wpid"
+  ok "running" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid"
   run 3 "owner attests a live pid" --store "$store" observe "$id" stopped --rev "$(rev "$id")" --evidence owner-attested --attested-by x
   run 3 "pgroup evidence on an unmeasured card" --store "$store" observe "$id" stopped --rev "$(rev "$id")" --evidence exit+pgroup-empty
   kill -KILL "-$wpid"
@@ -364,7 +367,7 @@ group_acceptance() {
   id="$out"
   ok "arm" --store "$store" arm "$id" --rev "$(rev "$id")" --prompt "$prompt_file"
   spawn "echo hello > '$repo/src/hello.txt'"
-  ok "running" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pgid "$wpid"
+  ok "running" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid"
   wait "$wpid" || true
   ok "pgroup stop on a measured card" --store "$store" observe "$id" stopped --rev "$(rev "$id")" --evidence exit+pgroup-empty --exit 0
   ok "result" --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
@@ -388,7 +391,7 @@ group_acceptance() {
   spawn "true"
   printf '%s\n' "$wpid" >"$scope/cgroup.procs"
   ok "running in a scope" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" \
-    --pgid "$wpid" --containment scope --scope "$scope"
+    --pid-started "$wstart" --pgid "$wpid" --containment scope --scope "$scope"
   wait "$wpid" || true
   printf '%s\n' 99999 >"$scope/cgroup.procs"
   run 3 "scope still has a process" --store "$store" observe "$id" stopped --rev "$(rev "$id")" --evidence exit+scope-empty
@@ -687,7 +690,7 @@ group_races() {
   new_write "$repo"
   ok "arm" --store "$store" arm "$id" --rev "$(rev "$id")" --prompt "$prompt_file"
   spawn "sleep 30"
-  ok "running" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pgid "$wpid"
+  ok "running" --store "$store" observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid"
   local r c1=0 c2=0 k
   for k in 1 2 3 4 5; do
     r="$(rev "$id")"
@@ -761,7 +764,7 @@ group_list() {
   ok "arm" --store "$store" arm "$a" --rev "$(rev "$a")" --prompt "$prompt_file"
   "$helper" --store "$store" list --unresolved | grep "$a" | grep -q C2 || fail "armed without handle is not C2"
   spawn "sleep 30"
-  ok "running" --store "$store" observe "$a" running --rev "$(rev "$a")" --pid "$wpid" --pgid "$wpid"
+  ok "running" --store "$store" observe "$a" running --rev "$(rev "$a")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid"
   "$helper" --store "$store" list --unresolved | grep "$a" | grep -q C3 || fail "running is not C3"
   ok "cancel" --store "$store" cancel "$a" --rev "$(rev "$a")" --method "INT pgroup"
   "$helper" --store "$store" list --unresolved | grep "$a" | grep -q C8 || fail "cancel requested is not C8"

@@ -18,10 +18,48 @@ set -euo pipefail
 
 PASSDOWN_VERSION="0.5.0-beta.1"
 
-# Git Bash on Windows rewrites arguments that look like POSIX paths before a
-# native program (jq.exe) sees them: `--arg p /holder` would arrive as
-# `C:/Program Files/Git/holder`. Receipts store POSIX paths verbatim.
+# Git Bash on Windows rewrites every argument that looks like a POSIX path
+# before a native program (jq.exe) sees it: `--arg p /holder` would arrive as
+# `C:/Program Files/Git/holder`. Automatic conversion is off, and the jq
+# wrapper below converts exactly the arguments jq opens as files.
 export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*'
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) JQ_NATIVE_PATHS=1 ;;
+  *) JQ_NATIVE_PATHS=0 ;;
+esac
+jq() {
+  if [ "$JQ_NATIVE_PATHS" = 0 ]; then
+    command jq "$@"
+    return
+  fi
+  local args=() filter_seen=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --arg | --argjson)
+        args+=("$1" "$2" "$3")
+        shift 3
+        ;;
+      --slurpfile | --rawfile)
+        args+=("$1" "$2" "$(cygpath -m "$3")")
+        shift 3
+        ;;
+      -*)
+        args+=("$1")
+        shift
+        ;;
+      *)
+        if [ "$filter_seen" = 0 ]; then
+          args+=("$1")
+          filter_seen=1
+        else
+          args+=("$(cygpath -m "$1")")
+        fi
+        shift
+        ;;
+    esac
+  done
+  command jq "${args[@]}"
+}
 
 HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
