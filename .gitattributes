@@ -1,0 +1,4 @@
+# Check every text file out with LF endings on every platform: Windows CI
+# runs the shell scripts under Git Bash, and the fixture manifest, golden
+# digests and plans are compared byte for byte.
+* text=auto eol=lf

@@ -54,6 +54,26 @@ if [ -f "$codex_config" ] && grep -q 'passdown@passdown' "$codex_config"; then
   codex_plugin=yes
 fi
 
+# v0.5 attempt receipts need jq >= 1.6. Without it `main` routing still
+# works, but delegated dispatch is refused (design PDN-0004 section 22).
+jq_bin="${PASSDOWN_DOCTOR_JQ:-jq}"
+if ! command -v "$jq_bin" >/dev/null 2>&1; then
+  issues=$((issues + 1))
+  echo "ISSUE jq: not found — install jq >= 1.6 (macOS ships /usr/bin/jq; Linux: your package manager; Windows: winget install jqlang.jq); delegated dispatch is refused without it"
+else
+  jq_version="$("$jq_bin" --version 2>/dev/null | sed -E 's/^jq-([0-9]+)\.([0-9]+).*/\1.\2/')"
+  jq_major="${jq_version%%.*}"
+  jq_minor="${jq_version#*.}"
+  [[ "$jq_major" =~ ^[0-9]+$ ]] || jq_major=0
+  [[ "$jq_minor" =~ ^[0-9]+$ ]] || jq_minor=0
+  if [ "$jq_major" -gt 1 ] || { [ "$jq_major" = 1 ] && [ "$jq_minor" -ge 6 ]; }; then
+    echo "OK    jq: $("$jq_bin" --version)"
+  else
+    issues=$((issues + 1))
+    echo "ISSUE jq: $("$jq_bin" --version 2>/dev/null) is older than 1.6"
+  fi
+fi
+
 report_host claude "$HOME/.claude/skills" "$claude_plugin"
 report_host codex "$HOME/.agents/skills" "$codex_plugin"
 report_host kiro "$HOME/.kiro/skills" n/a

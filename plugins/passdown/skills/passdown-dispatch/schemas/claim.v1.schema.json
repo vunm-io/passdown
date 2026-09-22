@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vunm-io/passdown/schemas/protocol/claim.v1.schema.json",
+  "title": "passdown.claim/v1",
+  "description": "A writer claim file in a target repository's claim namespace, <git-common-dir>/passdown/claims/ (repo.json, loc/<hash>.json, or a released copy under history/). The claim file is the authority for current write ownership; receipt `claim` objects are projections of it. Design: docs/design/PDN-0004-v05-acceptance-recovery.md sections 5.6 and 10.4. A loc: key is `loc:` followed by the first 16 hex digits of the SHA-256 of the attempt's absolute worktree path.",
+  "type": "object",
+  "required": ["schema", "key", "holder", "store", "profile", "location", "acquired_at", "history", "released_at", "release_basis"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "passdown.claim/v1" },
+    "key": { "type": "string", "pattern": "^(repo|loc:[0-9a-f]{16})$" },
+    "holder": { "$ref": "#/$defs/attemptId" },
+    "store": { "$ref": "#/$defs/absolutePath" },
+    "profile": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 },
+    "location": { "$ref": "#/$defs/absolutePath" },
+    "acquired_at": { "$ref": "#/$defs/timestamp" },
+    "history": {
+      "description": "Transfers in order. The holder of the last entry's `to` is the current holder.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "at"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "$ref": "#/$defs/attemptId" },
+          "to": { "$ref": "#/$defs/attemptId" },
+          "at": { "$ref": "#/$defs/timestamp" }
+        }
+      }
+    },
+    "released_at": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "release_basis": {
+      "type": ["string", "null"],
+      "pattern": "^(resolved|attested:.+)$"
+    }
+  },
+  "allOf": [
+    {
+      "$comment": "A profile attempt claims its own worktree key; a profile-less attempt claims the exclusive repo key (section 10.4).",
+      "if": { "properties": { "profile": { "type": "string" } } },
+      "then": { "properties": { "key": { "pattern": "^loc:" } } },
+      "else": { "properties": { "key": { "const": "repo" } } }
+    },
+    {
+      "$comment": "A live claim file carries no release; a file under history/ carries both release fields.",
+      "if": { "properties": { "released_at": { "type": "string" } } },
+      "then": { "properties": { "release_basis": { "type": "string" } } },
+      "else": { "properties": { "release_basis": { "type": "null" } } }
+    }
+  ],
+  "$defs": {
+    "attemptId": {
+      "type": "string",
+      "pattern": "^pd-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "absolutePath": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 4096,
+      "pattern": "^/"
+    }
+  }
+}

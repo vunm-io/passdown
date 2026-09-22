@@ -75,6 +75,16 @@ for i in "${!labels[@]}"; do
   fi
 done
 
+# The attempt helper records its version in every receipt it writes.
+helper="$repo_root/scripts/passdown-attempt"
+if [ -f "$helper" ]; then
+  helper_version="$(sed -n 's/^PASSDOWN_VERSION="\(.*\)"$/\1/p' "$helper")"
+  [ "$helper_version" = "$version" ] || {
+    echo "ERROR: scripts/passdown-attempt PASSDOWN_VERSION '$helper_version' != VERSION '$version'" >&2
+    exit 1
+  }
+fi
+
 codex_marketplace_name="$(
   jq -r '.plugins[] | select(.name == "passdown") | .name' \
     "$repo_root/.agents/plugins/marketplace.json"
