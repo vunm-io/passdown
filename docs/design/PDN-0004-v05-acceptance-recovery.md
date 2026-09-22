@@ -1690,6 +1690,32 @@ Layer A failure.
 | F25 | Receipt compare-and-write race | Two helpers apply `cancel` and `observe` (and, separately, `result` and `observe`) concurrently to one receipt, both planned from the same `rev` | Exactly one succeeds, the other exits 5; the final receipt has consecutive `rev` values and a transition log with no lost write |
 | F26 | Profile with a global key | Profile declares `port:5432` | Helper rejects the profile; no claim is written |
 
+**Implementation notes (S3).** `tests/interrupt.sh` runs the matrix
+through `tests/harness/ref-host` and `tests/harness/fake-executor`:
+
+- The overlap oracle uses worker **lifetimes**, not only write instants. Each
+  worker process journals `begin`/`end`, and a process without an `end` is
+  treated as still alive. A second writer that starts while the first exists
+  is caught even if their writes do not interleave.
+- F19 and F21 run at the host level (eight reference hosts or two planners
+  at once). The helper-level stress versions of F19, F23 and F25 live in
+  `tests/attempt.sh` and run 50 rounds in the stress job. `tests/interrupt.sh`
+  covers F23 and F25 through the host.
+- Containment: CI has no portable unprivileged scope. F18 therefore ends on
+  `owner-attested`, and `exit+scope-empty` is covered in `tests/attempt.sh`
+  with a simulated cgroup v2 directory (its `cgroup.procs` file), which is
+  what `probe` reads.
+- The reference host's `pickup` is the classification S5 will put into the
+  skill: helper classes, C9 from session age and the handoff's
+  `open_attempts`, and the plan cross-check.
+- The mutation check builds a copy of the helper in which the writer claim
+  is stubbed out: keys always free, every attempt armable. It then requires
+  F11, F15, F19b and F22 to fail, each because a second writer was not
+  refused.
+- F6 found a design bug, fixed in the helper (§10.5): the canonical plan
+  digest covered the attempt's own task text, so a planner's edit looked like
+  worker tampering.
+
 **Release gate:** all of Layer A green in CI (F19, F21, F23 and F25 run in a
 concurrency stress job); Layer B run for at least F1, F2, F4, F8, F10–F15 and
 F18 with zero false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is

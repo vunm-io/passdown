@@ -34,6 +34,15 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   sweep and concurrency races on Linux, macOS (bash 3.2) and Windows (Git
   Bash with `jq`). `scripts/doctor.sh` now reports a missing `jq`. No skill
   calls the helper yet.
+- Behavioral interruption harness (PDN-0004, slice S3): `tests/interrupt.sh`
+  drives the interruption matrix F1–F26 of the v0.5 design through a
+  reference host (`tests/harness/ref-host`) and a fake worker
+  (`tests/harness/fake-executor`). The host can be killed at named points,
+  and the worker journals its writes and its lifetime. After every scenario
+  the suite checks for false acceptance and overlapping writers, validates
+  the receipts and checks the recovery classes. A mutation check reruns
+  claim-dependent scenarios against a helper whose writer claim is stubbed
+  out and requires them to fail. Test-only; never shipped.
 
 ### Fixed
 

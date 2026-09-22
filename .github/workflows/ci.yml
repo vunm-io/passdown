@@ -25,8 +25,8 @@ jobs:
 
       - name: Validate shell scripts
         run: |
-          bash -n install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt
-          shellcheck install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt
+          bash -n install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt tests/harness/*
+          shellcheck install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt tests/harness/*
 
       - name: Check bundled helper and schema copies
         run: ./scripts/sync-bundled.sh --check
@@ -111,6 +111,22 @@ jobs:
         run: |
           jq --version
           if [ "$RUNNER_OS" = macOS ]; then /bin/bash --version | head -n 1; /bin/bash tests/attempt.sh; else tests/attempt.sh; fi
+
+  harness:
+    # Behavioral harness, Layer A: the interruption matrix F1-F26 through a
+    # reference host and a fake executor, plus the mutation check that the
+    # suite fails when the writer claim is stubbed out.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run the interruption matrix
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then /bin/bash tests/interrupt.sh; else tests/interrupt.sh; fi
 
   helper-windows:
     # Windows is supported with prerequisites: Git Bash plus a jq the job

@@ -1,0 +1,397 @@
+#!/usr/bin/env bash
+# ref-host — a test-only reference host for the v0.5 interruption harness
+# (tests/interrupt.sh). Never shipped. It performs the host protocol of
+# docs/design/PDN-0004-v05-acceptance-recovery.md sections 11-13 through the
+# real helper, step by step, and can be killed at named points to model a
+# host crash. The worker it launched keeps running in its own process group.
+#
+#   ref-host dispatch  --mode <m> [--task <id>] [--kind write|read] [--card <c>] [--guard <g>]
+#                      [--isolation current-checkout|worktree|read-only] [--location <dir>]
+#                      [--profile <p> --worktree-dir <dir>]
+#   ref-host reemit    --prev <id> --mode <m>
+#   ref-host continue  --prev <id> --mode <m> --answer <text>
+#   ref-host salvage   --prev <id>
+#   ref-host finish    --id <id>          # resume the lifecycle after a crash (C3/C4/C5/C6)
+#   ref-host pickup    [--session <s>] [--handoff <file>] [--budget <seconds>]
+#
+# Environment:
+#   REF_REPO          target repository = planner repository (default: cwd)
+#   REF_STORE         attempt store (default: <REF_REPO>/.git/passdown/attempts)
+#   REF_HELPER        passdown-attempt (default: the repo's scripts/passdown-attempt)
+#   REF_JOURNAL       fake-executor write journal
+#   REF_SESSION       this host's session id (default: ref-host-1)
+#   REF_CRASH_AT      after-new | after-arm | after-launch | after-first-write |
+#                     after-result | after-inspect | after-verdict | after-plan-edit | after-cancel
+#   REF_ATTEST        when set, the owner attests a stop the probe cannot prove
+#   REF_CANCEL_AFTER  seconds to wait before cancelling the worker
+#   REF_KILL_WORKER   when set with REF_CANCEL_AFTER, the escalation signal is KILL
+#
+# Every step prints "step <name> <attempt>" to stdout; the last line of a
+# lifecycle is "outcome <attempt> <accepted|rejected:<reason>|pending|...>".
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+repo="${REF_REPO:-$(pwd -P)}"
+store="${REF_STORE:-$repo/.git/passdown/attempts}"
+helper="${REF_HELPER:-$here/../../scripts/passdown-attempt}"
+executor="$here/fake-executor"
+session="${REF_SESSION:-ref-host-1}"
+plan_rel="docs/plan.md"
+
+H() { "$helper" --store "$store" "$@"; }
+rev() { jq -r .rev "$store/$1/receipt.json"; }
+field() { jq -r "$2" "$store/$1/receipt.json"; }
+step() { echo "step $1 ${2:-}"; }
+crash_at() {
+  if [ "${REF_CRASH_AT:-}" = "$1" ]; then
+    echo "crash $1 ${2:-}"
+    kill -KILL $$
+  fi
+}
+outcome() { echo "outcome $1 $2"; }
+
+verification_of() { # <task> -> the command in the task's Verification line
+  "$helper" digest task --plan "$repo/$plan_rel" --task "$1" >/dev/null
+  awk -v id="$1" '
+    $0 ~ "^- \\[[ xX]\\] " id " " { inb = 1; next }
+    inb && /^- \[/ { exit }
+    inb && /Verification:/ { sub(/.*Verification: *`/, ""); sub(/`.*/, ""); print; exit }' "$repo/$plan_rel"
+}
+
+plan_line() { # <task> <text> — append a Dispatched line under the task
+  TASK="$1" LINE="$2" perl -0pi -e \
+    's/(^- \[[ xX]\] \Q$ENV{TASK}\E [^\n]*\n(?:  [^\n]*\n)*)/$1  - Dispatched: fake (2026-09-21) — $ENV{LINE}\n/m' \
+    "$repo/$plan_rel"
+}
+tick() { TASK="$1" perl -pi -e 's/^- \[ \] \Q$ENV{TASK}\E /- [x] $ENV{TASK} /' "$repo/$plan_rel"; }
+
+# launch <id> <mode> <location>: arm, launch in a new process group, observe
+# running. Sets $wpid.
+launch() {
+  local id="$1" mode="$2" loc="$3" prompt="$store/../ref-prompt.$$"
+  printf 'Task %s. End with one passdown.result/v1 JSON object for attempt %s.\n' "$(field "$id" .task.ref)" "$id" >"$prompt"
+  H arm "$id" --rev "$(rev "$id")" --prompt "$prompt" >/dev/null
+  rm -f "$prompt"
+  step arm "$id"
+  crash_at after-arm "$id"
+  (
+    cd "$loc"
+    PASSDOWN_ATTEMPT="$id" FAKE_JOURNAL="${REF_JOURNAL:?}" FAKE_PLAN="$plan_rel" \
+      FAKE_TASK="$(field "$id" '.task.ref | sub(".*#"; "")')" FAKE_HELPER="$helper" \
+      exec perl -e 'setpgrp(0, 0); exec @ARGV' "$executor" "$mode"
+  ) >"$store/$id/transport.log" 2>&1 &
+  wpid=$!
+  # Bind the pid to its start time at launch: a fast worker may be gone by
+  # the time the host records the observation.
+  wstart="$(ps -o lstart= -p "$wpid" | sed 's/^ *//; s/ *$//')"
+  step launch "$id"
+  crash_at after-launch "$id"
+  H observe "$id" running --rev "$(rev "$id")" --pid "$wpid" --pid-started "$wstart" --pgid "$wpid" >/dev/null
+  step running "$id"
+  if [ "${REF_CRASH_AT:-}" = after-first-write ]; then
+    local n=0
+    until grep -q " $id " "$REF_JOURNAL" 2>/dev/null || [ "$n" -ge 100 ]; do sleep 0.05; n=$((n + 1)); done
+    crash_at after-first-write "$id"
+  fi
+}
+
+# stop_worker <id>: wait (or cancel), then record a safe stop, or unknown.
+stop_worker() {
+  local id="$1" facts code=0
+  if [ -n "${REF_CANCEL_AFTER:-}" ]; then
+    sleep "$REF_CANCEL_AFTER"
+    H cancel "$id" --rev "$(rev "$id")" --method "INT pgroup, then ${REF_KILL_WORKER:+KILL}${REF_KILL_WORKER:-TERM} after 1s" >/dev/null
+    step cancel "$id"
+    kill -INT "-$wpid" 2>/dev/null || true
+    crash_at after-cancel "$id"
+    sleep 1
+    kill "-${REF_KILL_WORKER:+KILL}${REF_KILL_WORKER:-TERM}" "-$wpid" 2>/dev/null || true
+  fi
+  wait "$wpid" || code=$?
+  step exited "$id"
+  facts="$(H probe "$id")"
+  if jq -e '.safe_evidence | index("exit+pgroup-empty")' <<<"$facts" >/dev/null; then
+    H observe "$id" stopped --rev "$(rev "$id")" --evidence exit+pgroup-empty --exit "$code" >/dev/null
+    step stopped "$id"
+    return 0
+  fi
+  H observe "$id" unknown --rev "$(rev "$id")" --note "parent exited ($code); descendants not ruled out" --parent-exited >/dev/null
+  step parent-exited "$id"
+  if [ -n "${REF_ATTEST:-}" ]; then
+    H observe "$id" stopped --rev "$(rev "$id")" --evidence owner-attested --attested-by "$REF_ATTEST" --exit "$code" >/dev/null
+    step stopped "$id"
+    return 0
+  fi
+  return 1
+}
+
+extract_result() { # <id>: card rule "last line that is a JSON object"
+  local id="$1" payload="$store/$1/payload.extracted"
+  grep -E '^\{' "$store/$id/transport.log" | tail -n 1 >"$payload" || true
+  if [ -s "$payload" ]; then
+    H result "$id" --rev "$(rev "$id")" --payload "$payload" >/dev/null 2>&1 || true
+  fi
+  step result "$id"
+  crash_at after-result "$id"
+}
+
+reject() { # <id> <code> <reason>
+  local task
+  task="$(field "$1" '.task.ref | sub(".*#"; "")')"
+  H verdict "$1" reject --rev "$(rev "$1")" --reason-code "$2" --reason "$3" >/dev/null
+  plan_line "$task" "rejected: ${2//_/ }; verified: -; attempt: $1"
+  outcome "$1" "rejected:$2"
+}
+
+# decide <id>: the acceptance lifecycle (section 12) after a safe stop.
+decide() {
+  local id="$1" task status disp loc cmd check code=0 msg
+  task="$(field "$id" '.task.ref | sub(".*#"; "")')"
+  if [ "$(field "$id" '.execution.reconciled_at // ""')" = "" ]; then
+    H inspect "$id" --rev "$(rev "$id")" >/dev/null
+    step inspect "$id"
+    crash_at after-inspect "$id"
+  fi
+  status="$(field "$id" .result.status)"
+  disp="$(field "$id" '.result.disposition // ""')"
+  if [ "$status" != valid ]; then reject "$id" invalid_result "result $status"; return; fi
+  case "$disp" in
+    needs_input) reject "$id" needs_input "$(jq -r .question.text "$store/$id/result.json")"; return ;;
+    blocked) reject "$id" blocked "$(jq -r .blocker.message "$store/$id/result.json")"; return ;;
+    failed) reject "$id" worker_failed "worker reported failure"; return ;;
+  esac
+  if [ "$(field "$id" .kind)" = reemit ] && [ "$(field "$id" '.artifact.digest == .artifact.expected')" != true ]; then
+    reject "$id" reemit_wrote "the re-emit changed the chain artifact"
+    return
+  fi
+  if [ "$(field "$id" .artifact.plan_touched)" = true ]; then
+    # PDN-0003: restore the worker's plan edit (the plan was clean at the
+    # baseline in this fixture), then reject.
+    git -C "$repo" checkout -q -- "$plan_rel"
+    reject "$id" plan_tampered "the worker edited the plan"
+    return
+  fi
+  if [ "$(field "$id" '.artifact.out_of_scope | length')" != 0 ]; then
+    reject "$id" scope_violation "out of scope: $(field "$id" '.artifact.out_of_scope | join(", ")')"
+    return
+  fi
+  loc="$(field "$id" .place.location)"
+  cmd="$(verification_of "$task")"
+  check="$store/$id/host-check.txt"
+  (cd "$loc" && sh -c "$cmd") >"$check" 2>&1 || code=$?
+  step verify "$id"
+  if [ "$code" != 0 ]; then
+    H verdict "$id" reject --rev "$(rev "$id")" --reason-code verification_failed --reason "$cmd exited $code" \
+      --check "$cmd=$code:$check" >/dev/null
+    plan_line "$task" "rejected: verification failed; verified: $cmd; attempt: $id"
+    outcome "$id" rejected:verification_failed
+    return
+  fi
+  if ! msg="$(H verdict "$id" accept --rev "$(rev "$id")" --check "$cmd=0:$check" 2>&1 >/dev/null)"; then
+    case "$msg" in
+      *stale*) reject "$id" stale "task changed during the attempt" ;;
+      *) outcome "$id" "pending:${msg//[$'\n']/ }" ;;
+    esac
+    return
+  fi
+  step verdict "$id"
+  crash_at after-verdict "$id"
+  project "$id"
+}
+
+project() { # <id>: plan edit, then projected (section 12.5)
+  local id="$1" task
+  task="$(field "$id" '.task.ref | sub(".*#"; "")')"
+  tick "$task"
+  plan_line "$task" "accepted; verified: $(verification_of "$task"); attempt: $id"
+  step plan-edit "$id"
+  crash_at after-plan-edit "$id"
+  H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
+  step projected "$id"
+  outcome "$id" accepted
+}
+
+lifecycle() { # <id> <mode> <location>
+  launch "$1" "$2" "$3"
+  if ! stop_worker "$1"; then
+    outcome "$1" "unknown"
+    return 0
+  fi
+  extract_result "$1"
+  decide "$1"
+}
+
+new_attempt() { # args for `new` -> sets $id; a refusal (exit 6) is reported, never worked around
+  local code=0
+  id="$(H new --host ref-host --session "$session" --planner-repo "$repo" "$@" 2>"$store/../ref-new.err.$$")" || code=$?
+  if [ "$code" != 0 ]; then
+    echo "refused $code $(tr '\n' ' ' <"$store/../ref-new.err.$$")"
+    rm -f "$store/../ref-new.err.$$"
+    exit "$code"
+  fi
+  rm -f "$store/../ref-new.err.$$"
+}
+
+cmd="${1:?command}"
+shift
+mode="" task=1.1 kind=write card=fake@1 guard="" isolation=current-checkout location="" prev="" answer=""
+profile="" worktree_dir="" id="" handoff="" budget=600 pickup_session="$session"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --mode) mode="$2"; shift 2 ;;
+    --task) task="$2"; shift 2 ;;
+    --kind) kind="$2"; shift 2 ;;
+    --card) card="$2"; shift 2 ;;
+    --guard) guard="$2"; shift 2 ;;
+    --isolation) isolation="$2"; shift 2 ;;
+    --location) location="$2"; shift 2 ;;
+    --profile) profile="$2"; shift 2 ;;
+    --worktree-dir) worktree_dir="$2"; shift 2 ;;
+    --prev) prev="$2"; shift 2 ;;
+    --answer) answer="$2"; shift 2 ;;
+    --id) id="$2"; shift 2 ;;
+    --session) pickup_session="$2"; shift 2 ;;
+    --handoff) handoff="$2"; shift 2 ;;
+    --budget) budget="$2"; shift 2 ;;
+    *) echo "ref-host: unknown option $1" >&2; exit 2 ;;
+  esac
+done
+mkdir -p "$store"
+
+case "$cmd" in
+  dispatch)
+    args=(--task-ref "$plan_rel#$task" --kind "$kind" --executor fake --card "$card" --place-repo "$repo")
+    if [ "$kind" = read ]; then
+      args+=(--tier native --reason-code fresh-context --reason "review in a fresh context" --isolation read-only)
+      [ -z "$guard" ] || args+=(--mutation-guard "$guard")
+      [ -z "$location" ] || args+=(--location "$location")
+    else
+      args+=(--tier external --reason-code owner-policy --reason "harness" --isolation "$isolation")
+      [ -z "$profile" ] || args+=(--profile "$profile")
+      [ -z "$worktree_dir" ] || args+=(--worktree-dir "$worktree_dir")
+    fi
+    new_attempt "${args[@]}"
+    step new "$id"
+    crash_at after-new "$id"
+    loc="$(field "$id" .place.location)"
+    if [ "$isolation" = worktree ]; then
+      git -C "$repo" worktree add -q -b "passdown/$id" "$loc" "$(field "$id" .place.base_commit)"
+    fi
+    if [ "$kind" = read ] && [ -n "$location" ]; then
+      mkdir -p "$location"
+      git -C "$repo" archive HEAD | tar -x -C "$location"
+    fi
+    FAKE_TARGET="${FAKE_TARGET:-}" lifecycle "$id" "$mode" "$loc"
+    ;;
+  reemit)
+    new_attempt --task-ref "$(field "$prev" .task.ref)" --kind reemit --tier external --reason-code owner-policy \
+      --reason "re-emit the result for work already done" --executor fake --card "$card" --continues "$prev"
+    step new "$id"
+    crash_at after-new "$id"
+    lifecycle "$id" "$mode" "$(field "$id" .place.location)"
+    ;;
+  continue)
+    printf '%s\n' "$answer" >"$store/../ref-answer.$$"
+    new_attempt --task-ref "$(field "$prev" .task.ref)" --kind write --tier external --reason-code owner-policy \
+      --reason "continue after needs_input" --executor fake --card "$card" --continues "$prev" \
+      --answer "$store/../ref-answer.$$"
+    rm -f "$store/../ref-answer.$$"
+    step new "$id"
+    crash_at after-new "$id"
+    lifecycle "$id" "$mode" "$(field "$id" .place.location)"
+    ;;
+  salvage)
+    # The host finishes the leftover output itself: current-session work
+    # with a receipt for traceability (section 12.4).
+    new_attempt --task-ref "$(field "$prev" .task.ref)" --kind salvage --tier current --reason-code host-work \
+      --reason "salvage the unaccepted output" --executor ref-host --continues "$prev"
+    step new "$id"
+    printf 'salvage\n' >"$store/../ref-prompt.$$"
+    H arm "$id" --rev "$(rev "$id")" --prompt "$store/../ref-prompt.$$" >/dev/null
+    rm -f "$store/../ref-prompt.$$"
+    loc="$(field "$id" .place.location)"
+    (cd "$loc" && rm -f src/more.txt && printf 'hello\n' >src/hello.txt)
+    H observe "$id" stopped --rev "$(rev "$id")" --evidence owner-attested --attested-by ref-host >/dev/null
+    jq -n --arg a "$id" '{schema: "passdown.result/v1", attempt: $a, disposition: "submitted",
+      summary: "host salvage", changed_paths: [{path: "src/hello.txt", change: "added"}], evidence: []}' \
+      >"$store/$id/payload.extracted"
+    H result "$id" --rev "$(rev "$id")" --payload "$store/$id/payload.extracted" >/dev/null
+    decide "$id"
+    ;;
+  finish)
+    # Reconcile (section 13.1): resume an interrupted lifecycle in the open.
+    obs="$(field "$id" .execution.observation)"
+    case "$obs" in
+      running | unknown)
+        facts="$(H probe "$id")"
+        [ "$(jq -r .process <<<"$facts")" != alive ] || { outcome "$id" "still-running"; exit 0; }
+        if jq -e '.safe_evidence | index("exit+pgroup-empty")' <<<"$facts" >/dev/null; then
+          H observe "$id" stopped --rev "$(rev "$id")" --evidence exit+pgroup-empty >/dev/null
+        elif [ -n "${REF_ATTEST:-}" ]; then
+          H observe "$id" stopped --rev "$(rev "$id")" --evidence owner-attested --attested-by "$REF_ATTEST" >/dev/null
+        else
+          outcome "$id" unknown
+          exit 0
+        fi
+        ;;
+    esac
+    if [ "$(field "$id" .verdict.acceptance)" = accepted ]; then
+      # C6: re-verify against the current tree before projecting (13.3).
+      if [ "$(H digest task --plan "$repo/$plan_rel" --task "$(field "$id" '.task.ref | sub(".*#"; "")')")" != "$(field "$id" .task.digest)" ]; then
+        outcome "$id" "historical"
+        exit 0
+      fi
+      (cd "$(field "$id" .place.location)" && sh -c "$(verification_of "$(field "$id" '.task.ref | sub(".*#"; "")')")") >/dev/null 2>&1 ||
+        { outcome "$id" "recheck-failed"; exit 0; }
+      # A passing check does not identify the accepted artifact. Recompute
+      # after verification, since the check itself may write files.
+      if [ "$(H digest artifact "$id")" != "$(field "$id" .verdict.artifact_digest)" ]; then
+        outcome "$id" "historical"
+        exit 0
+      fi
+      if grep -q "attempt: $id" "$repo/$plan_rel"; then
+        H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
+        outcome "$id" accepted
+      else
+        project "$id"
+      fi
+      exit 0
+    fi
+    if [ "$(field "$id" .result.status)" = none ] && [ -f "$store/$id/transport.log" ]; then
+      extract_result "$id"
+    fi
+    decide "$id"
+    ;;
+  pickup)
+    # Read-only briefing (section 13): classes from the helper, C9 from the
+    # session/handoff rule, and the plan cross-check.
+    H --json list --unresolved | jq -r --arg s "$pickup_session" --argjson budget "$budget" \
+      --argjson open "$( [ -n "$handoff" ] && jq -R -s -c 'split("\n") | map(select(. != ""))' "$handoff" || echo '[]')" '
+      .[] | .classes as $c
+      | .id as $id
+      | (if .host.session != $s and .age_seconds > $budget and ($open | index($id) | not) then ["C9"] else [] end) as $orphan
+      | "class \(.id) \(($orphan + $c) | join(","))\(if .ownership_risk then " ownership-risk" else "" end)"'
+    unresolved_tasks="$(H --json list --unresolved | jq -r '.[] | select(.classes | any(. != "C11")) | .task | sub(".*#"; "")' | sort -u)"
+    { grep -E '^- \[[xX]\] ' "$repo/$plan_rel" || true; } | awk '{print $3}' | while IFS= read -r t; do
+      line="$(awk -v id="$t" '$0 ~ "^- \\[[xX]\\] " id " " { inb = 1; next } inb && /^- \[/ { exit }
+        inb && /Dispatched:.*accepted/ { l = $0 } END { print l }' "$repo/$plan_rel")"
+      a="$(sed -n 's/.*attempt: \(pd-[0-9TZ]*-[0-9a-f]*\).*/\1/p' <<<"$line")"
+      if printf '%s\n' "$unresolved_tasks" | grep -qx "$t"; then
+        echo "unaccepted $t has an unresolved attempt"
+      elif [ -z "$line" ]; then
+        echo "unconfirmed $t ticked without an accepted Dispatched line"
+      elif [ -z "$a" ]; then
+        echo "accepted $t (legacy line, no receipt)"
+      elif [ ! -f "$store/$a/receipt.json" ] || [ "$(field "$a" .verdict.acceptance)" != accepted ] ||
+        [ "$(field "$a" .task.ref)" != "$plan_rel#$t" ] || [ "$(field "$a" .task.planner_repo)" != "$repo" ]; then
+        echo "inconsistent $t names $a, which is not an accepted receipt for this task"
+      else
+        echo "accepted $t"
+      fi
+    done
+    ;;
+  *)
+    echo "ref-host: unknown command $cmd" >&2
+    exit 2
+    ;;
+esac
