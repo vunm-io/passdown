@@ -157,6 +157,8 @@ require_text_block "$dispatch" "run the card's +\`toolchain_check\` +inside it" 
   "dispatch runs the toolchain check in the created worktree before arm"
 require_text_block "$dispatch" "then reject +\`invalid_result\`" \
   "dispatch rejects invalid_result before a re-emit or salvage"
+require_text_block "$dispatch" "Every one must exit +\`0\`; if any +fails, reject +\`verification_failed\`" \
+  "dispatch requires every verification command to pass"
 cards_readme="$skills_root/passdown-dispatch/references/executors/README.md"
 [ -f "$cards_readme" ] || fail "dispatch ships an executor card README"
 pass "dispatch ships an executor card README"

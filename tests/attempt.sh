@@ -314,8 +314,10 @@ group_acceptance() {
   r="$(rev "$id")"
   run 3 "accept without check" --store "$store" verdict "$id" accept --rev "$r"
   run 3 "accept with failing check" --store "$store" verdict "$id" accept --rev "$r" --check "t=1:$check_ok"
+  run 3 "accept with a passing and a failing check" --store "$store" verdict "$id" accept --rev "$r" \
+    --check "lint=0:$check_ok" --check "test=1:$check_ok"
   run 3 "accept out of scope" --store "$store" verdict "$id" accept --rev "$r" --check "t=0:$check_ok"
-  pass "accept needs a passing check and an in-scope artifact (F7 core)"
+  pass "accept needs every check to pass and an in-scope artifact (F7 core)"
 
   rm "$repo/README.md"
   run 3 "artifact changed after inspection" --store "$store" verdict "$id" accept --rev "$r" --check "t=0:$check_ok" --scope-override "restored"

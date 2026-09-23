@@ -1182,9 +1182,11 @@ The helper refuses unless **all** hold:
    has already restored the plan per the PDN-0003 rule and re-run `inspect`,
    and the verdict carries the `--scope-override <reason>` flag, which is
    recorded. (Default: reject `scope_violation` / `plan_tampered`.)
-6. At least one `--check` whose exit code is 0, with its output file in
-   `checks/`. Checks are the task's own verification commands run by the host,
-   never the worker's evidence commands replayed on trust.
+6. At least one `--check`, **every** `--check` with exit code 0, each with
+   its output file in `checks/`. (Refined in S4: r3 said "at least one whose
+   exit code is 0", which accepted a passing lint next to a failing test.)
+   Checks are the task's own verification commands run by the host, never
+   the worker's evidence commands replayed on trust.
 7. No invalid combination remains (§8.5).
 
 For worktree attempts whose done criteria need the integrated tree, the host

@@ -355,17 +355,21 @@ otherwise.
       and do not record a verdict: stop and report the conflict so the user
       can reconcile it;
     - `out_of_scope` not empty → reject `scope_violation`;
-    - otherwise run the task's own verification commands yourself, saving each
-      command's output to a file. Never replay the worker's evidence on
-      trust. For a worktree attempt whose done criteria need the integrated
-      tree, integrate first (apply the diff or cherry-pick into your
-      checkout), verify there, and pass `--integrated-into <dir>
-      --integrated-head <sha>`; a conflict or failing integrated check
-      rejects `integration_failed`.
+    - otherwise run every verification command the task names yourself,
+      saving each command's output to a file. Every one must exit `0`; if any
+      fails, reject `verification_failed` and pass all the checks you ran
+      with `--check`. Never replay the worker's evidence on trust, and never
+      drop a failing check to get an accept. For a worktree attempt whose
+      done criteria need the integrated tree, integrate first (apply the
+      diff or cherry-pick into your checkout), verify there, and pass
+      `--integrated-into <dir> --integrated-head <sha>`; a conflict or
+      failing integrated check rejects `integration_failed`.
 15. `verdict` — **Persist the verdict.** `passdown-attempt verdict <id>
-    accept --rev <n> --check "<command>=<exit>:<output file>"` or `verdict
-    <id> reject --rev <n> --reason-code <code> --reason <text>`. The helper
-    recomputes the task and artifact digests. A task edited since `new` is
+    accept --rev <n> --check "<command>=<exit>:<output file>"...` with one
+    `--check` per verification command, or `verdict <id> reject --rev <n>
+    --reason-code <code> --reason <text> [--check ...]`. The helper
+    recomputes the task and artifact digests and refuses an accept whose
+    checks did not all pass. A task edited since `new` is
     `stale`: reject it and create a new attempt for the new revision. A
     refused accept is reported, never forced.
 16. `plan-edit` — **Project to the plan.** Only now edit the plan: append one
