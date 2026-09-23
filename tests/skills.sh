@@ -143,6 +143,20 @@ reject_text "$dispatch" "agy --print" \
   "dispatch no longer carries an inline executor invocation table"
 require_text "$dispatch" "references/executors/" \
   "dispatch reads executor mechanics from cards"
+require_text_block "$dispatch" "Exactly one plan task per attempt" \
+  "dispatch assigns exactly one plan task per attempt"
+require_text_block "$dispatch" "only while the store holds +\\*\\*no +receipt at all\\*\\* +for that task" \
+  "a legacy accepted line counts only when the task has no receipts"
+require_text_block "$dispatch" "Delegation needs a card" \
+  "dispatch does not delegate to an executor without a card"
+require_text_block "$dispatch" "always lists +\`owner-attested\`" \
+  "dispatch branches on safe machine evidence, not on probe's owner-attested entry"
+require_text_block "$dispatch" "Never attest on the user's behalf" \
+  "dispatch never attests a stop for the user"
+require_text_block "$dispatch" "run the card's +\`toolchain_check\` +inside it" \
+  "dispatch runs the toolchain check in the created worktree before arm"
+require_text_block "$dispatch" "then reject +\`invalid_result\`" \
+  "dispatch rejects invalid_result before a re-emit or salvage"
 cards_readme="$skills_root/passdown-dispatch/references/executors/README.md"
 [ -f "$cards_readme" ] || fail "dispatch ships an executor card README"
 pass "dispatch ships an executor card README"

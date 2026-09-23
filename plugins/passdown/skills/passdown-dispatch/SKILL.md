@@ -74,10 +74,13 @@ executor lives in its card, not in this skill:
 `references/executors/<name>.md` next to this file, overridden by a card of
 the same name under `executor_refs`. A card's capabilities are `verified`,
 `unsupported` or `unverified`; use only `verified` ones for protocol
-decisions. A missing card means every capability is `unverified`. A card
-whose `cli_version` differs from the installed CLI is stale: use it, record
-the real version, and say so in your report. See
-`references/executors/README.md`.
+decisions. **Delegation needs a card**: the launch action, output capture
+and result rule come from it, so an executor without one is not eligible
+and its tasks stay in `main` until someone writes a card (one whose
+capabilities are all `unverified` is enough to be eligible). A native
+subagent uses the current host's card. A card whose `cli_version` differs
+from the installed CLI is stale: use it, record the real version, and say so
+in your report. See `references/executors/README.md`.
 
 Also read inherited `executor notes` lines in the effective configuration. They
 record environment constraints and past failures (sandbox write scope,
@@ -124,7 +127,8 @@ current session  →  authorized native delegation  →  external executor (name
   delegation, keep the task in `main` or ask first.
 - `measured-specialization` must point at something measured: a card note or
   a recorded experiment. No scores, no guesses.
-- An executor note that vetoes the task rules that executor out.
+- An executor note that vetoes the task rules that executor out, and so does
+  a missing card.
 - Depth is one. A worker you launch never dispatches to another external
   agent CLI through passdown; the helper refuses `new --tier external` inside
   a worker (`PASSDOWN_ATTEMPT` is set). A provider's own native subagents are
@@ -153,16 +157,22 @@ It must not edit plan checkboxes, `Dispatched:` lines, done criteria or
 verification. If it finds a problem with those fields, it reports the finding
 and the host decides.
 
-**Accepted verdict.** A delegated task counts as accepted when its latest
-`Dispatched:` line records `accepted`, names after `verified:` a check the
-host ran, and — when it names `attempt: <id>` — that receipt is `accepted`
-for this task. A task with any unresolved attempt is never accepted, whatever
-its lines say. Lines written before the `accepted` wording existed count as
-accepted when they report success and name a host check after `verified:`
-(for example `— done; verified: npm test`), so upgrading passdown does not
-reopen work that was already verified; such legacy lines count only while
-the store holds no receipt for that task. Handoff and pickup apply this same
-rule; anything else is not accepted.
+**Accepted verdict.** A task with any unresolved attempt is never accepted,
+whatever its lines say. Otherwise a delegated task counts as accepted when
+its **latest** `Dispatched:` line records `accepted`, names after
+`verified:` a check the host ran, and is one of:
+
+- a **v0.5 line** naming `attempt: <id>`, whose receipt exists, is
+  `accepted`, and is for this exact task (plan path and task ID);
+- a **host line**, `Dispatched: main …`, recording work the host finished
+  itself after a delegated attempt;
+- a **legacy line** without `attempt:`, only while the store holds **no
+  receipt at all** for that task. Lines written before the `accepted` wording existed count as accepted when they report success and name a host check after `verified:`
+  (for example `— done; verified: npm test`) under the same condition, so
+  upgrading passdown does not reopen work that was already verified.
+
+A delegated line that fits none of these is *inconsistent*. Handoff and
+pickup apply this same rule; anything else is not accepted.
 
 For `main` tasks the host and the worker are the same actor, so the current
 session keeps the usual flow: run the task's verification, then mark it
@@ -214,12 +224,13 @@ otherwise.
 1. `route` — **Route.** Pick the tier with the ladder and record the reason
    code and reason. Uncertainty routes to the current session, not to a
    speculative dispatch.
-2. `isolate` — **Choose isolation and run its preflight.** For the simple
+2. `isolate` — **Choose isolation and check eligibility.** For the simple
    class check that the inputs are committed (`git status --porcelain --
    <task paths and inputs>` is empty), that `worktree_dir` is set, and that
-   the card's `toolchain_check` can run. If preflight fails, fall back to
+   the task needs no environment bootstrap. If a check fails, fall back to
    `current-checkout` or keep the task in `main` **before** anything is
-   created, never mid-attempt.
+   created. The rest of the preflight needs the attempt's location and runs
+   in step 3.
 3. `new` — **Create the attempt.** `passdown-attempt new --task-ref
    <plan path>#<task id> --kind write|read --tier native|external
    --reason-code <c> --reason <text> --executor <name> --card <name@version>
@@ -228,10 +239,13 @@ otherwise.
    [--mutation-guard <g>]`. It snapshots the task and a baseline, takes the
    writer claim on the target repository and prints the attempt ID. Exit `6`
    names the attempt that holds the claim: report it and route elsewhere or
-   wait. Never work around a refusal. For a worktree attempt, now create the
-   worktree at the receipt's `place.location` (`git worktree add -b
-   passdown/<id> <location> <base_commit>`); if that fails, `abandon` the
-   attempt and fall back.
+   wait. Never work around a refusal. For a worktree attempt, finish the
+   preflight now, before `arm`: create the worktree at the receipt's
+   `place.location` (`git worktree add -b passdown/<id> <location>
+   <base_commit>`) and run the card's `toolchain_check` inside it. If either
+   fails, the attempt is still `prepared`: `abandon` it and start over in
+   `current-checkout` or `main`. Nothing is launched from a failed
+   preflight.
 4. `prompt` — **Build a self-contained prompt.** Name the task by an
    **exact task reference** — the plan path plus the task ID — and copy in the task
    text, paths, done criteria and verification. Never let the worker pick its
@@ -278,8 +292,10 @@ otherwise.
    adapter-specific. Record the process start time (`ps -o lstart= -p <pid>`)
    right after spawning. Do not babysit output line by line. A native
    subagent is launched by the host's own subagent tool; write its final
-   message to `transport.log`. It has no process group to probe, so unless
-   the host's card measured otherwise, its stop is `owner-attested`.
+   message to `transport.log`. It has no process group to probe, and the
+   tool call returning is not stop evidence: unless the host's card measured
+   a stronger mechanism, its stop needs a person's attestation (steps
+   10–11).
 7. `running` — **Observe running.** `passdown-attempt observe <id> running
    --rev <n> --pid <pid> --pid-started <start time> --pgid <pgid>` (or
    `--provider-session <s>`). If you never get an identity, the attempt stays
@@ -293,19 +309,24 @@ otherwise.
    grace period). A cancel request does not prove termination. Never start a
    replacement writer while this one has ownership risk.
 9. `exited` — **The worker exits.** Collect its exit code.
-10. `parent-exited` — *(when the probe gives no safe stop evidence)*
-    **Record the uncertain stop.** Run `passdown-attempt probe <id>`. When its
-    `safe_evidence` is empty, record `observe <id> unknown --rev <n> --note
-    <text> --parent-exited`: the parent exited, but surviving descendants
-    are not ruled out. The attempt keeps ownership risk and its claim. Ask the
-    user to confirm no process for this attempt remains (give them the card's
-    `discovery_hint` and the process group); without that confirmation, stop
-    the lifecycle here and report the attempt as unresolved.
+10. `parent-exited` — *(when the probe gives no safe machine evidence)*
+    **Record the uncertain stop.** Run `passdown-attempt probe <id>`. Its
+    `safe_evidence` always lists `owner-attested`, which is only usable once
+    a person has confirmed; what matters is whether it also lists
+    `exit+scope-empty` or `exit+pgroup-empty`. When it lists neither, record
+    `observe <id> unknown --rev <n> --note <text> --parent-exited`: the parent
+    exited, but surviving descendants are not ruled out. The attempt keeps
+    ownership risk and its claim. Ask the user to confirm no process for this
+    attempt remains (give them the card's `discovery_hint` and the process
+    group). You may extract and record the result (step 12) meanwhile, but
+    inspection and acceptance wait: without the confirmation, stop here and
+    report the attempt as unresolved.
 11. `stopped` — **Record the safe stop.** `passdown-attempt observe <id>
     stopped --rev <n> --evidence <e> [--exit <code>]` with evidence the probe
     reported as safe for the card (`exit+scope-empty`, or `exit+pgroup-empty`
     only when the card measured `descendants_may_outlive: unsupported`), or
-    `owner-attested --attested-by <who>` after the user confirmed. The helper
+    `owner-attested --attested-by <who>` only after that person confirmed no
+    process for the attempt remains. Never attest on the user's behalf. The helper
     refuses anything weaker. A bare parent exit or a provider's final event
     is never stop evidence.
 12. `result` — **Extract the result.** Apply the card's `result_extraction`
@@ -391,13 +412,15 @@ attribution is ambiguous, stop and ask instead of cleaning or retrying.
   question and the answer. Reusing a provider session never reuses an
   attempt ID.
 - **Re-emit, at most once per chain.** A safely stopped attempt with an
-  invalid or missing result: reject it `invalid_result` first (it keeps the
-  claim), then `new --kind reemit --continues <id>`. The re-emit prompt asks
+  invalid or missing result: `inspect` it, reject it `invalid_result` (it
+  keeps the claim), then `new --kind reemit --continues <id>`. The helper
+  refuses a re-emit of an attempt that was never inspected. The re-emit prompt asks
   only for the final result of the work already done and forbids file
   changes. If `inspect` shows the re-emit wrote, reject it `reemit_wrote`.
   A second re-emit in the chain is refused.
 - **Salvage.** To finish unaccepted leftover output yourself, run `new --kind
-  salvage --tier current --continues <id>`. The claim transfers to you; do the
+  salvage --tier current --continues <id>` on an attempt rejected
+  `invalid_result`, `reemit_wrote` or `integration_failed`. The claim transfers to you; do the
   work in the open, then inspect, verify and record a verdict as usual. The
   coding task is never re-run just to repair its report.
 - **Give up the output.** `passdown-attempt release-claim <id> --rev <n>
@@ -417,13 +440,13 @@ risk.**
 | C2 launch outcome unknown | `unknown`, no handle | Inspect the location read-only for writes; look for the process with the card's `discovery_hint`. A writer found → C3. The user attests no writer remains → `observe stopped --evidence owner-attested`, then continue as C4/C5. Never start another writer first. |
 | C3 live or maybe live | `running`, or `unknown` with a handle | `probe`. Same pid and start time alive → wait or cancel. Gone with safe evidence → `observe stopped`, then C4/C5. Gone without it → `observe unknown --parent-exited`; ask the owner to attest, or wait. The claim stays held throughout. |
 | C4 result, no verdict | `stopped`, valid result, `pending` | Resume the lifecycle at step 13 (`inspect`). |
-| C5 stopped, no valid result | `stopped`, `pending`, result missing or invalid | Try step 12 once more from `transport.log`; still nothing → re-emit once, salvage or reject. |
+| C5 stopped, no valid result | `stopped`, `pending`, result missing or invalid | Try step 12 once more from `transport.log`. Still no valid result → `inspect`, then reject `invalid_result` (the claim stays held), then re-emit once, salvage, or `release-claim`. |
 | C6 verdict, no projection | `accepted`, not projected | Recompute the task digest. Changed → do not project; report the verdict as historical for the old revision. Equal → re-run the recorded checks against the current tree, then confirm `digest artifact <id>` still equals the accepted artifact digest; only then do steps 16–17 (skip 16 if the plan line already names the attempt). |
 | C7 stale | the task changed since `new` | Resolve ownership risk first (C2/C3), then reject `stale`. New work is a new attempt. |
 | C8 cancel unconfirmed | cancel requested, `running`/`unknown` | `probe`; escalate the cancel method per the card; confirm the stop only with safe evidence. The claim stays held until then. |
 | C9 orphaned | another session's attempt, older than the card's budget, not in the latest handoff's `open_attempts` | Surface it with age and location, then classify it as C1–C8. |
 | C10 interrupted continuation | unresolved attempt with `continues` set | Show the chain; resolve its newest link as C1–C8. Nothing is re-asked. |
-| C11 claim without a live holder | `claims` shows a key held by a stopped attempt, or its store is unreadable | Holder stopped → continue, salvage or `release-claim`. Store unreadable → treat as ownership risk; release only after the owner confirms no writer. |
+| C11 claim without a live holder | `claims` shows a key held by a stopped attempt already **rejected** with a claim-holding reason (`needs_input`, `blocked`, `invalid_result`, `reemit_wrote`, `integration_failed`), or by an attempt whose store is unreadable | Rejected holder → continue, salvage or `release-claim`. Store unreadable → treat as ownership risk; release only after the owner confirms no writer. A stopped attempt still `pending` is C4 or C5, not C11: reconcile it first and never release its claim before its verdict. |
 
 A task with an unresolved attempt is never counted accepted from the plan
 alone, and a `Dispatched: … attempt: <id>` line whose receipt is missing, not
@@ -434,8 +457,9 @@ plan to match.
 
 - Never mark a task complete based only on an executor's claim, and never on
   a checkbox the executor ticked itself.
-- One task per attempt unless tasks are trivially mechanical and share
-  context.
+- Exactly one plan task per attempt: the receipt, the task digest and the
+  authority clause all name one task. To batch mechanical work, the planner
+  first makes it one task.
 - If an executor fails twice on the same task (count attempts with
   `passdown-attempt list --task <plan>#<id>`), escalate to the next tier —
   do not retry a third time.

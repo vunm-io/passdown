@@ -49,17 +49,24 @@ Rules:
 
 ## Without a card
 
-Every capability is `unverified`. The host then:
+An executor without a card is **not eligible** for delegated execution: the
+launch action, output capture and result rule have nowhere to come from, so
+its tasks stay in `main`. To make it eligible, write a card. A first card may
+mark every capability `unverified`; it still has to state `invocation.headless`,
+`invocation.output_capture` and `invocation.result_extraction`. With every
+capability `unverified`, the card sets `stop.settle_seconds` above zero,
+because a parent exit cannot rule out a surviving writer, and the host:
 
-- extracts the result as **the last line of `transport.log` that is a JSON
-  object**, and treats a missing or invalid payload as C5 (re-emit once);
 - ends every attempt with `owner-attested`, unless it launched the worker in
   a containment scope;
 - starts continuations fresh from files (no session resume).
 
+A missing capability key in a card counts as `unverified`.
+
 Unmeasured invocation hints for executors that have no card yet. They are a
-starting point for measuring a card (see `docs/EXECUTOR_SETUP.md` in the
-passdown repository), not verified facts:
+starting point for writing and measuring a card (see
+`docs/EXECUTOR_SETUP.md` in the passdown repository), not an operational
+dispatch contract:
 
 | Executor | Headless invocation | Notes |
 |---|---|---|

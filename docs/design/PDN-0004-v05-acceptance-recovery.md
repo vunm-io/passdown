@@ -1964,6 +1964,35 @@ ships it.
   a card (all capabilities `unverified`, the result is the last JSON-object
   line of `transport.log`, stops are owner-attested), and the former inline
   invocation table, relabeled as unmeasured hints.
+- Review round 1 on [#18](https://github.com/vunm-io/passdown/pull/18)
+  tightened the prose against the helper and this design:
+  - **Accepted-line rule.** The latest `Dispatched:` line decides. It counts
+    only if it binds to an accepted receipt for the exact task, is a host
+    (`main`) line, or is a legacy line for a task with no receipts at all
+    (§13.2). `ref-host pickup` applies the same rule; F2c covers a legacy line
+    that tries to mask a resolved rejection.
+  - **Stop branching.** `probe` always lists `owner-attested`, so the
+    `parent-exited` step branches on the absence of safe *machine* evidence.
+    An attestation needs a person, never the host on their behalf; this
+    includes native subagents, whose tool call returning is not stop evidence.
+  - **Two-phase preflight.** Eligibility is checked before `new`. Worktree
+    creation and `toolchain_check` run after `new` and before `arm`; either
+    failing abandons the still-`prepared` attempt. This refines §16, where
+    both ran before `new`.
+  - **A card is required to delegate.** Invocation, capture and the result
+    rule come from the card, so an executor without one stays in `main`. An
+    all-`unverified` card is enough (§18 "missing card" now means *ineligible*,
+    not *all-unverified*). A card with `descendants_may_outlive` unverified
+    sets `settle_seconds > 0`; the S6 card lint enforces it.
+  - **One plan task per attempt**, as the receipt's single `task.ref` already
+    implies. The C5 row reaches a re-emit only through inspect and an
+    `invalid_result` rejection, and C11 is limited to holders already
+    rejected with a claim-holding reason.
+  - **Tests.** Rejections now pass through `verify`, `verdict` and `plan-edit`
+    in `ref-host`. STEPS also requires 17 distinct names and every required
+    (not `*(when …)*`) step on each run. F18b releases the late write through
+    a host hook placed between the first inspection and the settle wait, so
+    the write cannot miss the window on a slow runner.
 
 **S5 — Pickup + handoff recovery.**
 - Files: `passdown-pickup/SKILL.md` (store listing, classes C1–C10, plan
