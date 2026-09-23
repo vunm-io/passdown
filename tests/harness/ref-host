@@ -25,6 +25,8 @@
 #   REF_ATTEST        when set, the owner attests a stop the probe cannot prove
 #   REF_CANCEL_AFTER  seconds to wait before cancelling the worker
 #   REF_KILL_WORKER   when set with REF_CANCEL_AFTER, the escalation signal is KILL
+#   REF_AFTER_INSPECT test hook: a shell command run after the first inspection,
+#                     before the settle wait
 #
 # Every step prints "step <name> <attempt>" to stdout; the last line of a
 # lifecycle is "outcome <attempt> <accepted|rejected:<reason>|pending|...>".
@@ -143,7 +145,9 @@ reject() { # <id> <code> <reason>
   local task
   task="$(field "$1" '.task.ref | sub(".*#"; "")')"
   H verdict "$1" reject --rev "$(rev "$1")" --reason-code "$2" --reason "$3" >/dev/null
+  step verdict "$1"
   plan_line "$task" "rejected: ${2//_/ }; verified: -; attempt: $1"
+  step plan-edit "$1"
   outcome "$1" "rejected:$2"
 }
 
@@ -160,10 +164,12 @@ decide() {
   # second, equal inspection at least that far apart.
   settle="$(jq -r '."stop.settle_seconds" // "0"' "$store/$id/card.json" 2>/dev/null || echo 0)"
   if [ "$settle" -gt 0 ] && [ "$(field "$id" '.artifact.inspections | length')" -lt 2 ]; then
+    [ -z "${REF_AFTER_INSPECT:-}" ] || sh -c "$REF_AFTER_INSPECT"
     sleep "$settle"
     H inspect "$id" --rev "$(rev "$id")" >/dev/null
     step inspect "$id"
   fi
+  step verify "$id"
   status="$(field "$id" .result.status)"
   disp="$(field "$id" '.result.disposition // ""')"
   if [ "$status" != valid ]; then reject "$id" invalid_result "result $status"; return; fi
@@ -191,11 +197,12 @@ decide() {
   cmd="$(verification_of "$task")"
   check="$store/$id/host-check.txt"
   (cd "$loc" && sh -c "$cmd") >"$check" 2>&1 || code=$?
-  step verify "$id"
   if [ "$code" != 0 ]; then
     H verdict "$id" reject --rev "$(rev "$id")" --reason-code verification_failed --reason "$cmd exited $code" \
       --check "$cmd=$code:$check" >/dev/null
+    step verdict "$id"
     plan_line "$task" "rejected: verification failed; verified: $cmd; attempt: $id"
+    step plan-edit "$id"
     outcome "$id" rejected:verification_failed
     return
   fi
@@ -387,15 +394,24 @@ case "$cmd" in
       | "class \(.id) \(($orphan + $c) | join(","))\(if .ownership_risk then " ownership-risk" else "" end)"'
     unresolved_tasks="$(H --json list --unresolved | jq -r '.[] | select(.classes | any(. != "C11")) | .task | sub(".*#"; "")' | sort -u)"
     { grep -E '^- \[[xX]\] ' "$repo/$plan_rel" || true; } | awk '{print $3}' | while IFS= read -r t; do
+      # The latest Dispatched line decides (the dispatch skill's accepted-verdict rule).
       line="$(awk -v id="$t" '$0 ~ "^- \\[[xX]\\] " id " " { inb = 1; next } inb && /^- \[/ { exit }
-        inb && /Dispatched:.*accepted/ { l = $0 } END { print l }' "$repo/$plan_rel")"
+        inb && /Dispatched:/ { l = $0 } END { print l }' "$repo/$plan_rel")"
       a="$(sed -n 's/.*attempt: \(pd-[0-9TZ]*-[0-9a-f]*\).*/\1/p' <<<"$line")"
       if printf '%s\n' "$unresolved_tasks" | grep -qx "$t"; then
         echo "unaccepted $t has an unresolved attempt"
       elif [ -z "$line" ]; then
         echo "unconfirmed $t ticked without an accepted Dispatched line"
+      elif ! grep -q -- '— accepted; verified: ' <<<"$line"; then
+        echo "inconsistent $t is ticked but its latest Dispatched line is not accepted"
+      elif grep -q 'Dispatched: main (' <<<"$line"; then
+        echo "accepted $t (host line)"
       elif [ -z "$a" ]; then
-        echo "accepted $t (legacy line, no receipt)"
+        if [ "$(H --json list --task "$plan_rel#$t" | jq length)" = 0 ]; then
+          echo "accepted $t (legacy line, no receipt)"
+        else
+          echo "inconsistent $t has a legacy line but the store holds receipts for it"
+        fi
       elif [ ! -f "$store/$a/receipt.json" ] || [ "$(field "$a" .verdict.acceptance)" != accepted ] ||
         [ "$(field "$a" .task.ref)" != "$plan_rel#$t" ] || [ "$(field "$a" .task.planner_repo)" != "$repo" ]; then
         echo "inconsistent $t names $a, which is not an accepted receipt for this task"

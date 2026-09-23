@@ -214,6 +214,28 @@ F2() {
   pass "forged accepted + [x] then a host crash: pickup counts nothing accepted (unresolved attempt)"
 }
 
+F2c() {
+  local a
+  setup F2c
+  host dispatch --mode write-outside-scope
+  a="$(attempt_of)"
+  [ "$(outcome_of)" = rejected:scope_violation ] || fail "fixture: $(outcome_of)"
+  # A line without attempt: cannot stand in for the rejected receipt.
+  perl -0pi -e 's/^- \[ \] 1.1 ([^\n]*\n(?:  [^\n]*\n)*)/- [x] 1.1 $1  - Dispatched: fake (2026-09-21) — accepted; verified: true\n/m' \
+    "$repo/docs/plan.md"
+  host pickup
+  grep -q '^inconsistent 1.1 ' <<<"$out" || fail "a legacy line masked a resolved rejection: $out"
+  # The host finishing the task itself is a host line, and counts.
+  printf 'hello\n' >"$repo/src/hello.txt"
+  perl -0pi -e 's/^(- \[x\] 1.1 [^\n]*\n(?:  [^\n]*\n)*)/$1  - Dispatched: main (2026-09-21) — accepted; verified: grep -q hello src\/hello.txt\n/m' \
+    "$repo/docs/plan.md"
+  host pickup
+  grep -q '^accepted 1.1 (host line)$' <<<"$out" || fail "the host line was not counted: $out"
+  ground_truth_accepted="1.1"
+  oracle
+  pass "a legacy line cannot mask a resolved receipt; a later host line counts"
+}
+
 F3() {
   setup F3
   host dispatch --mode edit-criteria
@@ -473,20 +495,15 @@ F18() {
 }
 
 F18b() {
-  local a="" n=0 d
+  local a
   setup F18b
-  # The descendant writes only once the harness releases it, right after the
-  # host's first inspection: inside the card's settle window.
-  FAKE_DETACHED_AFTER="$scratch/F18b/release" host_bg dispatch --mode spawn-detached-writer --card fake-overclaims@1
-  until [ -n "$a" ] && [ "$(field "$a" '.artifact.inspections | length' 2>/dev/null || echo 0)" -ge 1 ] || [ "$n" -ge 600 ]; do
-    sleep 0.05
-    n=$((n + 1))
-    for d in "$store"/pd-*; do [ -d "$d" ] && a="${d##*/}"; done
-  done
-  [ -n "$a" ] && [ "$n" -lt 600 ] || fail "the host never inspected"
-  touch "$scratch/F18b/release"
-  wait "$host_pid" || true
-  out="$(cat "$scratch/F18b/host.log")"
+  # The test hook runs after the host's first inspection and before its
+  # settle wait: it releases the detached descendant and waits for its late
+  # write, so the write lands inside the settle window on any runner.
+  FAKE_DETACHED_AFTER="$scratch/F18b/release" \
+    REF_AFTER_INSPECT="touch '$scratch/F18b/release'; n=0; until grep -q ' src/late.txt' '$journal' || [ \$n -ge 600 ]; do sleep 0.05; n=\$((n + 1)); done" \
+    host dispatch --mode spawn-detached-writer --card fake-overclaims@1
+  a="$(attempt_of)"
   [ "$(field "$a" .execution.stop_evidence)" = exit+pgroup-empty ] || fail "the wrong card did not allow a pgroup stop"
   grep -q " $a .* src/late.txt" "$journal" || fail "fixture: the descendant never wrote"
   [ "$(field "$a" '.artifact.inspections | length')" -ge 2 ] || fail "the host skipped the settle inspection"
@@ -716,12 +733,15 @@ F14c() {
 
 # ------------------------------------------------------ skill correspondence
 
-# skill_steps: "<number> <name>" for each numbered step of the dispatch skill's
-# "Delegated attempt lifecycle" section, in document order.
+# skill_steps: "<number> <name> required|optional" for each numbered step of
+# the dispatch skill's "Delegated attempt lifecycle" section, in document
+# order. A step whose text starts with "*(when" is optional.
 skill_steps() {
   awk '/^## Delegated attempt lifecycle/ { in_s = 1; next }
     in_s && /^## / { exit }
-    in_s && /^[0-9]+\. `[a-z-]+`/ { n = $1; sub(/\.$/, "", n); name = $2; gsub(/`/, "", name); print n, name }' \
+    in_s && /^[0-9]+\. `[a-z-]+`/ {
+      n = $1; sub(/\.$/, "", n); name = $2; gsub(/`/, "", name)
+      print n, name, ($4 ~ /^\*\(when/ ? "optional" : "required") }' \
     "$repo_root/plugins/passdown/skills/passdown-dispatch/SKILL.md"
 }
 
@@ -734,13 +754,27 @@ in_skill_order() {
       last = pos[$1]; prev = $1 }' <<<"$1"
 }
 
+# run_steps <label> <expect-outcome>: the steps of the last host run must
+# follow the skill's order and include every required step.
+run_steps() {
+  local seq msg missing
+  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
+  msg="$(in_skill_order "$seq")" || fail "$1 run: $msg"
+  missing="$(for r in $required; do grep -qx "$r" <<<"$seq" || printf '%s ' "$r"; done)"
+  [ -z "$missing" ] || fail "$1 run skipped required steps: $missing"
+  emitted="$emitted $seq"
+}
+
 STEPS() {
-  local numbered want host_names emitted="" seq msg
+  local numbered want required host_names emitted=""
   setup STEPS
   numbered="$(skill_steps)"
   [ -n "$numbered" ] || fail "no numbered steps in the dispatch skill's lifecycle"
   awk '$1 != NR { exit 1 }' <<<"$numbered" || fail "skill steps are not numbered 1..N: $(tr '\n' ' ' <<<"$numbered")"
   want="$(awk '{ print $2 }' <<<"$numbered" | tr '\n' ' ')"
+  required="$(awk '$3 == "required" { print $2 }' <<<"$numbered" | tr '\n' ' ')"
+  [ "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | wc -l | tr -d ' ')" = 17 ] ||
+    fail "the skill no longer names 17 distinct steps: $want"
   # 1. The reference host performs exactly the skill's steps: the same names.
   host_names="$(grep -v '^[[:space:]]*#' "$harness/ref-host" | grep -oE '(^|[[:space:];(])step [a-z][a-z-]*' |
     awk '{ print $2 }' | sort -u | tr '\n' ' ')"
@@ -750,19 +784,14 @@ STEPS() {
   # with a settle window, and a cancelled worker.
   host dispatch --mode ok --task 1.1
   [ "$(outcome_of)" = accepted ] || fail "attested run: $(outcome_of)"
-  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
-  msg="$(in_skill_order "$seq")" || fail "attested run: $msg"
-  emitted="$emitted $seq"
+  run_steps attested
   host dispatch --mode ok --task 1.2 --card fake-measured@1
   [ "$(outcome_of)" = accepted ] || fail "measured run: $(outcome_of)"
-  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
-  [ "$(grep -c '^inspect$' <<<"$seq")" = 2 ] || fail "measured run: no settle inspection"
-  msg="$(in_skill_order "$seq")" || fail "measured run: $msg"
-  emitted="$emitted $seq"
+  [ "$(grep -c '^step inspect ' <<<"$out")" = 2 ] || fail "measured run: no settle inspection"
+  run_steps measured
   REF_CANCEL_AFTER=0.5 host dispatch --mode hang --task 1.1
-  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
-  msg="$(in_skill_order "$seq")" || fail "cancelled run: $msg"
-  emitted="$emitted $seq"
+  case "$(outcome_of)" in rejected:*) ;; *) fail "cancelled run: $(outcome_of)" ;; esac
+  run_steps cancelled
   # 3. Together the runs exercise every step the skill names.
   [ "$(tr ' ' '\n' <<<"$emitted" | grep . | sort -u | tr '\n' ' ')" = "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | tr '\n' ' ')" ] ||
     fail "runs left skill steps unexercised"
@@ -797,7 +826,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
+all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do
