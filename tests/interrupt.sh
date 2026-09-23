@@ -714,6 +714,63 @@ F14c() {
   pass "C6 refuses changed artifacts even when verification still passes"
 }
 
+# ------------------------------------------------------ skill correspondence
+
+# skill_steps: "<number> <name>" for each numbered step of the dispatch skill's
+# "Delegated attempt lifecycle" section, in document order.
+skill_steps() {
+  awk '/^## Delegated attempt lifecycle/ { in_s = 1; next }
+    in_s && /^## / { exit }
+    in_s && /^[0-9]+\. `[a-z-]+`/ { n = $1; sub(/\.$/, "", n); name = $2; gsub(/`/, "", name); print n, name }' \
+    "$repo_root/plugins/passdown/skills/passdown-dispatch/SKILL.md"
+}
+
+# in_skill_order <steps>: every emitted step is a skill step, in skill order
+# (a step may repeat, e.g. the settle inspection).
+in_skill_order() {
+  awk -v want="$want" 'BEGIN { n = split(want, w, " "); for (i = 1; i <= n; i++) pos[w[i]] = i }
+    { if (!($1 in pos)) { print "step " $1 " is not in the skill"; exit 1 }
+      if (pos[$1] < last) { print "step " $1 " after " prev; exit 1 }
+      last = pos[$1]; prev = $1 }' <<<"$1"
+}
+
+STEPS() {
+  local numbered want host_names emitted="" seq msg
+  setup STEPS
+  numbered="$(skill_steps)"
+  [ -n "$numbered" ] || fail "no numbered steps in the dispatch skill's lifecycle"
+  awk '$1 != NR { exit 1 }' <<<"$numbered" || fail "skill steps are not numbered 1..N: $(tr '\n' ' ' <<<"$numbered")"
+  want="$(awk '{ print $2 }' <<<"$numbered" | tr '\n' ' ')"
+  # 1. The reference host performs exactly the skill's steps: the same names.
+  host_names="$(grep -v '^[[:space:]]*#' "$harness/ref-host" | grep -oE '(^|[[:space:];(])step [a-z][a-z-]*' |
+    awk '{ print $2 }' | sort -u | tr '\n' ' ')"
+  [ "$host_names" = "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | tr '\n' ' ')" ] ||
+    fail "skill steps [$want] and ref-host steps [$host_names] differ"
+  # 2. In the skill's order, on real runs: an attested stop, a measured card
+  # with a settle window, and a cancelled worker.
+  host dispatch --mode ok --task 1.1
+  [ "$(outcome_of)" = accepted ] || fail "attested run: $(outcome_of)"
+  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
+  msg="$(in_skill_order "$seq")" || fail "attested run: $msg"
+  emitted="$emitted $seq"
+  host dispatch --mode ok --task 1.2 --card fake-measured@1
+  [ "$(outcome_of)" = accepted ] || fail "measured run: $(outcome_of)"
+  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
+  [ "$(grep -c '^inspect$' <<<"$seq")" = 2 ] || fail "measured run: no settle inspection"
+  msg="$(in_skill_order "$seq")" || fail "measured run: $msg"
+  emitted="$emitted $seq"
+  REF_CANCEL_AFTER=0.5 host dispatch --mode hang --task 1.1
+  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
+  msg="$(in_skill_order "$seq")" || fail "cancelled run: $msg"
+  emitted="$emitted $seq"
+  # 3. Together the runs exercise every step the skill names.
+  [ "$(tr ' ' '\n' <<<"$emitted" | grep . | sort -u | tr '\n' ' ')" = "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | tr '\n' ' ')" ] ||
+    fail "runs left skill steps unexercised"
+  ground_truth_accepted="1.1 1.2"
+  oracle
+  pass "the reference host performs the dispatch skill's $(wc -l <<<"$numbered" | tr -d ' ') numbered steps, by name and in order"
+}
+
 # ------------------------------------------------------------ mutation check
 
 mutation() {
@@ -740,7 +797,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 mutation"
+all="F1 F2 F2b F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do

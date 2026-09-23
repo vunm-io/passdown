@@ -1935,6 +1935,36 @@ ships it.
   the card *format* (not card content).
 - Rollback: revert the skill prose; helper stays inert.
 
+**Implementation notes (S4).**
+
+- The skill's lifecycle is 17 numbered steps, each carrying a step name
+  (`route`, `isolate`, `new`, `prompt`, `arm`, `launch`, `running`, `cancel`,
+  `exited`, `parent-exited`, `stopped`, `result`, `inspect`, `verify`,
+  `verdict`, `plan-edit`, `projected`). `ref-host` prints the same names.
+  `tests/interrupt.sh STEPS` requires the same set of names in both, runs
+  three lifecycles (an attested stop, a measured card with a settle window, a
+  cancelled worker) and requires each emitted sequence to follow the skill's
+  order and the three runs together to cover every step. Reordering,
+  renaming or renumbering a step in the skill fails it.
+- The cross-check found a gap in S3: `ref-host` never took the second,
+  settle-window inspection of §12.3(4), and F18b passed only because the test
+  did that inspection itself after the late write had landed. `ref-host` now
+  inspects twice when the card's `settle_seconds` is above zero. F18b uses a
+  test card (`fake-overclaims`, settle 2 s) and releases the detached write
+  right after the host's first inspection, so the host's own second
+  inspection must see it. The residual risk of §23 is unchanged: a write
+  after the window is not caught.
+- The helper assigns a worktree attempt's location at `new`, so the worktree
+  itself is created right after `new`. Preflight (§16) still runs first. If
+  creating the worktree fails anyway, the attempt is still `prepared` and the
+  host `abandon`s it before falling back, which keeps §11 step 2's rule that
+  nothing launches from a failed preflight.
+- Cards arrive in S6. Until then the skill ships
+  `references/executors/README.md`: the card format, what a host does without
+  a card (all capabilities `unverified`, the result is the last JSON-object
+  line of `transport.log`, stops are owner-attested), and the former inline
+  invocation table, relabeled as unmeasured hints.
+
 **S5 — Pickup + handoff recovery.**
 - Files: `passdown-pickup/SKILL.md` (store listing, classes C1–C10, plan
   cross-check, read-only rule), `passdown-handoff/SKILL.md` (`open_attempts`,

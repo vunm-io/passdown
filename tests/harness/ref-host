@@ -28,6 +28,9 @@
 #
 # Every step prints "step <name> <attempt>" to stdout; the last line of a
 # lifecycle is "outcome <attempt> <accepted|rejected:<reason>|pending|...>".
+# The step names are the numbered steps of the "Delegated attempt lifecycle"
+# in plugins/passdown/skills/passdown-dispatch/SKILL.md, in the same order;
+# tests/interrupt.sh (scenario STEPS) checks that the two stay in step.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -69,6 +72,7 @@ tick() { TASK="$1" perl -pi -e 's/^- \[ \] \Q$ENV{TASK}\E /- [x] $ENV{TASK} /' "
 # running. Sets $wpid.
 launch() {
   local id="$1" mode="$2" loc="$3" prompt="$store/../ref-prompt.$$"
+  step prompt "$id"
   printf 'Task %s. End with one passdown.result/v1 JSON object for attempt %s.\n' "$(field "$id" .task.ref)" "$id" >"$prompt"
   H arm "$id" --rev "$(rev "$id")" --prompt "$prompt" >/dev/null
   rm -f "$prompt"
@@ -268,6 +272,8 @@ mkdir -p "$store"
 
 case "$cmd" in
   dispatch)
+    step route
+    step isolate
     args=(--task-ref "$plan_rel#$task" --kind "$kind" --executor fake --card "$card" --place-repo "$repo")
     if [ "$kind" = read ]; then
       args+=(--tier native --reason-code fresh-context --reason "review in a fresh context" --isolation read-only)
