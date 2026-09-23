@@ -145,12 +145,20 @@ reject() { # <id> <code> <reason>
 
 # decide <id>: the acceptance lifecycle (section 12) after a safe stop.
 decide() {
-  local id="$1" task status disp loc cmd check code=0 msg
+  local id="$1" task status disp loc cmd check code=0 msg settle
   task="$(field "$id" '.task.ref | sub(".*#"; "")')"
   if [ "$(field "$id" '.execution.reconciled_at // ""')" = "" ]; then
     H inspect "$id" --rev "$(rev "$id")" >/dev/null
     step inspect "$id"
     crash_at after-inspect "$id"
+  fi
+  # Artifact stability (section 12.3): a card with a settle window needs a
+  # second, equal inspection at least that far apart.
+  settle="$(jq -r '."stop.settle_seconds" // "0"' "$store/$id/card.json" 2>/dev/null || echo 0)"
+  if [ "$settle" -gt 0 ] && [ "$(field "$id" '.artifact.inspections | length')" -lt 2 ]; then
+    sleep "$settle"
+    H inspect "$id" --rev "$(rev "$id")" >/dev/null
+    step inspect "$id"
   fi
   status="$(field "$id" .result.status)"
   disp="$(field "$id" '.result.disposition // ""')"
