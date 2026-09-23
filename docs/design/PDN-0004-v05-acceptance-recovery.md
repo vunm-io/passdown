@@ -1990,6 +1990,11 @@ ships it.
     implies. The C5 row reaches a re-emit only through inspect and an
     `invalid_result` rejection, and C11 is limited to holders already
     rejected with a claim-holding reason.
+  - Round 2 added two more. `verdict accept` now refuses unless **every**
+    `--check` exited 0 (§12.3(6)), and the skill runs every verification
+    command a task names. Projection is the outcome line, then the
+    checkbox. C6 recovery finishes whichever half is missing instead of
+    skipping step 16 when the line exists; F14d crashes between the two.
   - **Tests.** Rejections now pass through `verify`, `verdict` and `plan-edit`
     in `ref-host`. STEPS also requires 17 distinct names and every required
     (not `*(when …)*`) step on each run. F18b releases the late write through

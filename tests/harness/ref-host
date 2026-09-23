@@ -21,7 +21,8 @@
 #   REF_JOURNAL       fake-executor write journal
 #   REF_SESSION       this host's session id (default: ref-host-1)
 #   REF_CRASH_AT      after-new | after-arm | after-launch | after-first-write |
-#                     after-result | after-inspect | after-verdict | after-plan-edit | after-cancel
+#                     after-result | after-inspect | after-verdict | after-plan-line |
+#                     after-plan-edit | after-cancel
 #   REF_ATTEST        when set, the owner attests a stop the probe cannot prove
 #   REF_CANCEL_AFTER  seconds to wait before cancelling the worker
 #   REF_KILL_WORKER   when set with REF_CANCEL_AFTER, the escalation signal is KILL
@@ -221,8 +222,12 @@ decide() {
 project() { # <id>: plan edit, then projected (section 12.5)
   local id="$1" task
   task="$(field "$id" '.task.ref | sub(".*#"; "")')"
+  # The skill's order: the outcome line, then the checkbox. Recovery (finish)
+  # completes whichever half is missing.
+  grep -q "attempt: $id" "$repo/$plan_rel" ||
+    plan_line "$task" "accepted; verified: $(verification_of "$task"); attempt: $id"
+  crash_at after-plan-line "$id"
   tick "$task"
-  plan_line "$task" "accepted; verified: $(verification_of "$task"); attempt: $id"
   step plan-edit "$id"
   crash_at after-plan-edit "$id"
   H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
@@ -370,12 +375,7 @@ case "$cmd" in
         outcome "$id" "historical"
         exit 0
       fi
-      if grep -q "attempt: $id" "$repo/$plan_rel"; then
-        H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
-        outcome "$id" accepted
-      else
-        project "$id"
-      fi
+      project "$id"
       exit 0
     fi
     if [ "$(field "$id" .result.status)" = none ] && [ -f "$store/$id/transport.log" ]; then

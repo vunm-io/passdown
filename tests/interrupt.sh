@@ -423,6 +423,26 @@ F14() {
   pass "crash between verdict and projection: C6, projected only after digest + checks re-verified"
 }
 
+F14d() {
+  local a
+  setup F14d
+  REF_CRASH_AT=after-plan-line host dispatch --mode ok
+  a="$(attempt_of)"
+  crashed || fail "no crash"
+  [ "$(class_of "$a")" = C6 ] || fail "class $(class_of "$a")"
+  grep -q "attempt: $a" "$repo/docs/plan.md" || fail "fixture: the outcome line was not written"
+  grep -q '^- \[ \] 1.1 ' "$repo/docs/plan.md" || fail "fixture: the task was ticked before the crash"
+  host finish --id "$a"
+  [ "$(outcome_of)" = accepted ] || fail "finish: $(outcome_of)"
+  grep -q '^- \[x\] 1.1 ' "$repo/docs/plan.md" || fail "recovery did not tick the task"
+  [ "$(grep -c "attempt: $a" "$repo/docs/plan.md")" = 1 ] || fail "recovery wrote a second outcome line"
+  [ "$(field "$a" '.verdict.projected_at != null')" = true ] || fail "not projected"
+  [ "$(field "$a" .claim.state)" = released ] || fail "claim still $(field "$a" .claim.state)"
+  ground_truth_accepted="1.1"
+  oracle
+  pass "crash between the outcome line and the checkbox: C6 recovery ticks the task once and projects"
+}
+
 F15() {
   local a
   setup F15
@@ -826,7 +846,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
+all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do

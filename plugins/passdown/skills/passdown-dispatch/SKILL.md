@@ -373,7 +373,9 @@ otherwise.
     `stale`: reject it and create a new attempt for the new revision. A
     refused accept is reported, never forced.
 16. `plan-edit` — **Project to the plan.** Only now edit the plan: append one
-    line under the task, then set the checkbox to match.
+    line under the task, then set the checkbox to match. Both edits are
+    idempotent on recovery: skip the line if one naming this attempt already
+    exists, and tick the box if it is not ticked yet.
     - `- Dispatched: <executor> (<YYYY-MM-DD>) — accepted; verified: <check
       the host ran>; attempt: <id>` — tick the task `[x]`.
     - `- Dispatched: <executor> (<YYYY-MM-DD>) — rejected: <reason>;
@@ -445,7 +447,7 @@ risk.**
 | C3 live or maybe live | `running`, or `unknown` with a handle | `probe`. Same pid and start time alive → wait or cancel. Gone with safe evidence → `observe stopped`, then C4/C5. Gone without it → `observe unknown --parent-exited`; ask the owner to attest, or wait. The claim stays held throughout. |
 | C4 result, no verdict | `stopped`, valid result, `pending` | Resume the lifecycle at step 13 (`inspect`). |
 | C5 stopped, no valid result | `stopped`, `pending`, result missing or invalid | Try step 12 once more from `transport.log`. Still no valid result → `inspect`, then reject `invalid_result` (the claim stays held), then re-emit once, salvage, or `release-claim`. |
-| C6 verdict, no projection | `accepted`, not projected | Recompute the task digest. Changed → do not project; report the verdict as historical for the old revision. Equal → re-run the recorded checks against the current tree, then confirm `digest artifact <id>` still equals the accepted artifact digest; only then do steps 16–17 (skip 16 if the plan line already names the attempt). |
+| C6 verdict, no projection | `accepted`, not projected | Recompute the task digest. Changed → do not project; report the verdict as historical for the old revision. Equal → re-run the recorded checks against the current tree, then confirm `digest artifact <id>` still equals the accepted artifact digest; only then finish step 16 — append the `accepted` line unless one naming this attempt already exists, and tick the task if it is not ticked — then step 17. |
 | C7 stale | the task changed since `new` | Resolve ownership risk first (C2/C3), then reject `stale`. New work is a new attempt. |
 | C8 cancel unconfirmed | cancel requested, `running`/`unknown` | `probe`; escalate the cancel method per the card; confirm the stop only with safe evidence. The claim stays held until then. |
 | C9 orphaned | another session's attempt, older than the card's budget, not in the latest handoff's `open_attempts` | Surface it with age and location, then classify it as C1–C8. |

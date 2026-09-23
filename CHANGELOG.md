@@ -75,7 +75,8 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
     for a task with no receipts at all. One plan task per attempt.
   - The host runs every verification command a task names, and
     `passdown-attempt verdict accept` refuses unless every `--check` passed
-    (it used to need only one passing check).
+    (it used to need only one passing check). C6 recovery completes a
+    half-written projection (outcome line written, box not yet ticked).
   - `templates/plan.md` and `templates/AGENTS.thin.md` document the attempt
     reference and the new optional keys `attempt_dir`, `worktree_dir`,
     `executor_refs` and `concurrency_profiles`.
