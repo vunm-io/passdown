@@ -5,7 +5,7 @@
     "url": "https://github.com/vunm-io"
   },
   "metadata": {
-    "description": "Shift-handover workflow for AI agents: intake captured ideas, dispatch tasks to the cheapest capable executor, and hand work down between sessions and agents.",
+    "description": "Shift-handover workflow for AI agents: intake captured ideas, dispatch tasks to the right executor with recoverable attempt receipts, and hand work down between sessions and agents.",
     "version": "0.5.0-beta.1"
   },
   "plugins": [

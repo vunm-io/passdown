@@ -25,8 +25,9 @@ problems:
 
 1. **Sessions grow too long.** Context bloats, tokens get expensive, and there
    is no natural stopping point to resume from.
-2. **One vendor is not enough.** Heavy work should go to whatever executor is
-   cheapest and capable — another CLI agent, a subagent, a different model.
+2. **One vendor is not enough.** Some work belongs with another executor — a
+   CLI agent, a subagent, a different model — for a reason you can name: the
+   environment it needs, a measured strength, quota, or your own policy.
 3. **Rules live in the wrong place.** Workspace-level conventions vanish when
    an agent opens a sub-repo, because project-level config follows the
    directory, not the user.
@@ -35,8 +36,12 @@ problems:
 
 - **Workspace-agnostic** — skills install at user level and survive any `cwd` and sub-repo.
 - **Multi-host** — the same skill core runs in Claude Code, Codex, and Kiro.
-- **Multi-executor** — dispatch routes work to the cheapest compatible
-  external CLI, native subagent, or main session declared in `AGENTS.md`.
+- **Multi-executor** — dispatch keeps work in the main session by default and
+  delegates to a native subagent or an external CLI declared in `AGENTS.md`
+  when there is a named reason to.
+- **Survives interruptions** — every delegated attempt has a durable receipt
+  before the worker starts, so a crashed session is recovered from files,
+  never retried on a guess.
 - **Cheap resume** — the next session reads small handoff files, not a giant transcript.
 - **Composes, not replaces** — fits alongside superpowers, OpenSpec, and
   host-specific executor adapters.
@@ -58,7 +63,7 @@ also why the skills survive any `cwd` and any repo.
 | Skill | What it does |
 |---|---|
 | `passdown-intake` | Turns raw notes from an inbox (dropped there by weak capture tools like chat apps) into properly planned work in the right repo |
-| `passdown-dispatch` | Routes each task to the cheapest compatible external CLI, native subagent, or main session, then verifies the result |
+| `passdown-dispatch` | Routes each task to the main session, an authorized native subagent, or an external CLI; records every delegated attempt and verifies its result before accepting it |
 | `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, and the traps that live nowhere else |
 | `passdown-pickup` | Starts the next shift: reads the latest handoff and plan state, verifies them against the working tree, and briefs the session |
 
@@ -80,6 +85,23 @@ after its own verification, and records `accepted` in the task's
 `Dispatched:` line. Handoff never ticks unverified delegated work, and pickup
 flags a delegated `[x]` that has no host verdict. Tasks the current session
 does itself still mark complete as they go.
+
+**How dispatch works.** Routing climbs a ladder — current session, then an
+authorized native subagent, then an external executor — and the last step
+needs a named reason (owner policy, a required environment, a measured
+specialization, quota). Each delegated attempt gets a receipt in the
+repository's `.git/passdown/attempts/` before the worker can start. A small
+deterministic helper bundled with the skills (`passdown-attempt`, Bash + `jq`)
+writes it and enforces the protocol: it refuses a second writer on a
+repository while an earlier one may still be running, and it never treats
+silence or a bare process exit as proof that a worker stopped. The worker
+ends with a small JSON result; the host inspects the actual changes, runs its
+own checks, persists the verdict, and only then ticks the task
+(`Dispatched: … — accepted; verified: …; attempt: <id>`). When a session dies
+mid-dispatch, the next one sees each unfinished attempt with a recovery class
+and reconciles it in the open. How to drive a given executor — flags, result
+extraction, cancel signal, which stop evidence is safe — lives in versioned
+executor cards whose capabilities are measured, not copied from docs.
 
 **Planning is pluggable.** Plans can be plain markdown files (see
 [`templates/plan.md`](templates/plan.md)) with `[dispatch: external-ok]` /
@@ -120,6 +142,11 @@ See [`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md) for how each combination is
 expected to behave.
 
 ## Install
+
+Delegated dispatch needs `jq` ≥ 1.6 (≥ 1.7 on Windows) next to Git and Bash.
+macOS ships it; on Linux use the package manager; on Windows install Git for
+Windows and `winget install jqlang.jq`. Without `jq`, dispatch keeps every task
+in the main session. `scripts/doctor.sh` checks for it.
 
 **As a Claude Code plugin (recommended):**
 
