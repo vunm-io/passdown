@@ -478,6 +478,24 @@ F16() {
   pass "an old attempt from another session, not in the handoff, is surfaced C9 with ownership risk"
 }
 
+F16b() {
+  local a
+  setup F16b
+  # Created long ago by another session, but that session touched it just now:
+  # not orphaned. C9 follows the last transition, not the creation time.
+  REF_SESSION=other-session REF_CRASH_AT=after-arm host dispatch --mode ok
+  a="$(attempt_of)"
+  sleep 3
+  H observe "$a" unknown --rev "$(rev "$a")" --note "re-probed by its own session" >/dev/null
+  "$harness/ref-host" pickup --session current-session --budget 2 >"$scratch/F16b/pickup.out"
+  grep -q "^class $a C2 ownership-risk" "$scratch/F16b/pickup.out" || fail "recently updated attempt called orphaned: $(cat "$scratch/F16b/pickup.out")"
+  sleep 3
+  "$harness/ref-host" pickup --session current-session --budget 2 >"$scratch/F16b/pickup2.out"
+  grep -q "^class $a C9,C2 ownership-risk" "$scratch/F16b/pickup2.out" || fail "idle attempt not C9: $(cat "$scratch/F16b/pickup2.out")"
+  oracle
+  pass "C9 follows the last receipt update: an old attempt updated recently is not orphaned"
+}
+
 F17() {
   local o c
   setup F17
@@ -798,6 +816,44 @@ PICKUP() {
   pass "pickup uses the skills' class names, reports a missing handoff attempt, and writes nothing"
 }
 
+HANDOFF() {
+  local a b gone="pd-20260101T000000Z-00000000" prev new
+  setup HANDOFF
+  prev="$scratch/HANDOFF/prev.md"
+  new="$scratch/HANDOFF/new.md"
+  # A store: a resolved attempt, a live one, and one whose receipt is gone.
+  host dispatch --mode ok --task 1.1
+  a="$(attempt_of)"
+  [ "$(outcome_of)" = accepted ] || fail "fixture: $(outcome_of)"
+  REF_CRASH_AT=after-first-write host dispatch --mode write-then-sleep --task 1.2
+  b="$(attempt_of)"
+  printf -- '---\nstatus: IN_PROGRESS\nbranch: main\nagent: claude\nplan: docs/plan.md\nopen_attempts:\n  - %s\n  - %s\n---\n' "$a" "$gone" >"$prev"
+  "$harness/ref-host" handoff --previous-log "$prev" --out "$new"
+  grep -q "^  - $b$" "$new" || fail "the live attempt is not listed: $(cat "$new")"
+  grep -q "^  - $gone   # receipt missing$" "$new" || fail "an attempt with a missing receipt was dropped: $(cat "$new")"
+  grep -q "$a" "$new" && fail "a resolved attempt was carried forward"
+  reap "$b"
+  # B overwrote A's accepted file; restore it so the oracle compares A's
+  # verdict with A's bytes.
+  printf 'hello\n' >"$repo/src/hello.txt"
+  ground_truth_accepted="1.1"
+  oracle
+  # No store at all: pickup and then handoff keep the handoff's attempts,
+  # report them, and do not create the store.
+  setup HANDOFF-nostore
+  scenario=HANDOFF
+  prev="$scratch/HANDOFF-nostore/prev.md"
+  new="$scratch/HANDOFF-nostore/new.md"
+  printf -- '---\nstatus: IN_PROGRESS\nbranch: main\nagent: claude\nplan: docs/plan.md\nopen_attempts:\n  - %s\n---\n' "$gone" >"$prev"
+  "$harness/ref-host" pickup --handoff "$prev" >"$scratch/HANDOFF-nostore/pickup.out" 2>"$scratch/HANDOFF-nostore/pickup.err"
+  grep -q "^inconsistent $gone is named in the handoff" "$scratch/HANDOFF-nostore/pickup.out" || fail "pickup did not report the missing attempt"
+  grep -q "absent, not empty" "$scratch/HANDOFF-nostore/pickup.err" || fail "pickup did not see that the store is absent"
+  "$harness/ref-host" handoff --previous-log "$prev" --out "$new" 2>/dev/null
+  grep -q "^  - $gone   # receipt missing$" "$new" || fail "handoff dropped an attempt because its store is absent: $(cat "$new")"
+  [ ! -e "$store" ] || fail "pickup or handoff created the store"
+  pass "handoff carries forward unresolved and receipt-less attempts, drops resolved ones, and never reads an absent store as empty"
+}
+
 # ------------------------------------------------------ skill correspondence
 
 # skill_steps: "<number> <name> required|optional" for each numbered step of
@@ -893,7 +949,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS PICKUP mutation"
+all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F16b F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS PICKUP HANDOFF mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do

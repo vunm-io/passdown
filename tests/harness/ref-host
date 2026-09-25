@@ -14,6 +14,8 @@
 #   ref-host finish    --id <id>          # resume the lifecycle after a crash (C3/C4/C5/C6)
 #   ref-host pickup    [--session <s>] [--handoff <log>] [--budget <seconds>]
 #                      (<log>: a handoff log; its frontmatter open_attempts are known)
+#   ref-host handoff   --previous-log <log> --out <log>   # writes open_attempts only
+#   pickup and handoff are read-only toward the store and never create it.
 #
 # Environment:
 #   REF_REPO          target repository = planner repository (default: cwd)
@@ -269,7 +271,7 @@ new_attempt() { # args for `new` -> sets $id; a refusal (exit 6) is reported, ne
 cmd="${1:?command}"
 shift
 mode="" task=1.1 kind=write card=fake@1 guard="" isolation=current-checkout location="" prev="" answer=""
-profile="" worktree_dir="" id="" handoff="" budget=600 pickup_session="$session"
+profile="" worktree_dir="" id="" handoff="" budget=600 pickup_session="$session" previous_log="" out_log=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --mode) mode="$2"; shift 2 ;;
@@ -287,10 +289,12 @@ while [ "$#" -gt 0 ]; do
     --session) pickup_session="$2"; shift 2 ;;
     --handoff) handoff="$2"; shift 2 ;;
     --budget) budget="$2"; shift 2 ;;
+    --previous-log) previous_log="$2"; shift 2 ;;
+    --out) out_log="$2"; shift 2 ;;
     *) echo "ref-host: unknown option $1" >&2; exit 2 ;;
   esac
 done
-mkdir -p "$store"
+case "$cmd" in pickup | handoff) ;; *) mkdir -p "$store" ;; esac
 
 case "$cmd" in
   dispatch)
@@ -393,6 +397,33 @@ case "$cmd" in
     fi
     decide "$id"
     ;;
+  handoff)
+    # The open_attempts rule of passdown-handoff (S5): what the store lists
+    # as unresolved, plus every ID the previous handoff named unless its
+    # receipt now shows it resolved. A missing receipt is carried forward.
+    listed="$(H --json list --unresolved 2>/dev/null | jq -r '.[].id')"
+    all="$(H --json list 2>/dev/null || echo '[]')"
+    carried=""
+    for o in $(open_attempts_of "$previous_log" | jq -r '.[]'); do
+      printf '%s\n' "$listed" | grep -qx "$o" && continue
+      if [ -f "$store/$o/receipt.json" ]; then
+        [ "$(jq -r --arg o "$o" '.[] | select(.id == $o) | .classes | length' <<<"$all")" = 0 ] && continue
+        carried="$carried$o
+"
+      else
+        carried="$carried$o   # receipt missing
+"
+      fi
+    done
+    {
+      printf -- '---\nstatus: IN_PROGRESS\nbranch: main\nagent: ref-host\nplan: %s\n' "$plan_rel"
+      if [ -n "$listed$carried" ]; then
+        echo "open_attempts:"
+        { printf '%s\n' "$listed"; printf '%s' "$carried"; } | grep . | sed 's/^/  - /'
+      fi
+      printf -- '---\n'
+    } >"${out_log:?--out}"
+    ;;
   pickup)
     # Read-only briefing (section 13): classes from the helper, C9 from the
     # session/handoff rule, and the plan cross-check.
@@ -400,7 +431,7 @@ case "$cmd" in
       --argjson open "$(open_attempts_of "$handoff")" '
       .[] | .classes as $c
       | .id as $id
-      | (if .host.session != $s and .age_seconds > $budget and ($open | index($id) | not) then ["C9"] else [] end) as $orphan
+      | (if .host.session != $s and .idle_seconds > $budget and ($open | index($id) | not) then ["C9"] else [] end) as $orphan
       | "class \(.id) \(($orphan + $c) | join(","))\(if .ownership_risk then " ownership-risk" else "" end)"'
     # Every attempt the handoff named must still be in the store.
     open_attempts_of "$handoff" | jq -r '.[]' | while IFS= read -r o; do
