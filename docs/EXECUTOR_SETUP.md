@@ -41,12 +41,14 @@ unanswerable prompt becomes a silent hang or an immediate denial.
 ## 2. Measure
 
 Measure through the real attempt lifecycle, in a disposable fixture
-repository, never in a repository you care about. E-KIRO-1 is the worked
-example: its runner (`docs/evidence/e-kiro-1/run.sh`) drives `new`, `arm`,
-the launch, `observe`, `probe`, `result`, `inspect` and a verdict, and records
-every run's prompt, transport, receipt and the process tree seen while it
-ran. To measure another executor, adapt the launch line and the result
-extraction.
+repository, never in a repository you care about. `docs/evidence/fixture.sh`
+builds one; `docs/evidence/executor-run.sh` drives one run through `new`,
+`arm`, the launch, `observe`, `probe`, `result`, `inspect` and a verdict, and
+records the prompt, transport, receipt and the process tree seen while it
+ran. It knows `kiro-cli`, `claude` and `codex` (`EK_EXECUTOR`); for another
+executor, add its launch line, session field and result extraction. The
+shipped cards' records (`docs/evidence/e-kiro-1/`, `e-claude-1/`,
+`e-codex-1/`) are worked examples, including the runs that went wrong.
 
 Use a plan with four tasks: a read-only task, a bounded write to one named
 file, a task that is deliberately missing a decision, and a long-running
@@ -58,7 +60,7 @@ task that writes slowly (a loop with `sleep 1`). Then:
 | B | Bounded write, with the narrowest permission that allows it; also once with none | the `permissions` mechanism; scope behavior; the other half of `read_only_mode` (writes denied without trust) |
 | C | The ambiguous task; the prompt says not to guess | whether the executor returns `needs_input` without writing |
 | D | Answer C's question by resuming its session, with a prompt that leaves the task text out | `session_id_observable`, `resume_session`, `invocation.resume` |
-| E | The long task, interrupted with the cancel signal to the process group, then separately with `KILL`; record the process tree during the run and after the exit | `cancel_signal_honored`, `descendants_may_outlive`, `stop.containment`, `settle_seconds`, `discovery_hint` |
+| E | The long task, interrupted with the cancel signal to the process group, then separately with `KILL`, both a few seconds after the task starts writing (`--interrupt SIG@file:<path>+<seconds>`); record the process tree during the run and after the exit, and whether the file keeps growing | `cancel_signal_honored`, `descendants_may_outlive`, `stop.containment`, `settle_seconds`, `discovery_hint` |
 
 Check `--help` of the installed version for an option that enforces an
 output schema (`native_schema_enforcement`), and record the CLI version with
@@ -76,7 +78,10 @@ description of the schema exactly, including its mistakes.
   exit a safe stop. Mark it only when no process started for an attempt can
   leave the process group. An executor with a shell tool can start a
   detached process on request, so it normally stays `unverified`, and its
-  attempts end with owner attestation or a containment scope.
+  attempts end with owner attestation or a containment scope. Measure
+  `KILL` as well as the cancel signal: Claude Code and Codex run their tool
+  shells in separate process groups that end on `SIGINT` but survive
+  `SIGKILL` and keep writing, which makes the capability `verified`.
 - With `descendants_may_outlive` not `unsupported`, `stop.settle_seconds`
   must be above zero.
 - A card is eligible to launch only with `invocation.headless`,

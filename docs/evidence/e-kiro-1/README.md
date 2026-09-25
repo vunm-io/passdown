@@ -10,7 +10,7 @@ Result: the card at
 | kiro-cli | 2.24.0 (engine `v2`, from the `runStarted` event) |
 | Host | macOS 26.6.2, `/bin/bash` 3.2 |
 | Operator | Claude (passdown maintainer session), attesting stops from the recorded process listings |
-| Fixture | a disposable Git repository with a four-task plan (read, bounded write, ambiguous, long-running) |
+| Fixture | a disposable Git repository with a four-task plan (read, bounded write, ambiguous, long-running), built inline; [`../fixture.sh`](../fixture.sh) reproduces it |
 | Runner | [`run.sh`](run.sh) — every run goes through the real helper: `new`, `arm`, launch, `observe`, `probe`, `result`, `inspect`, verdict |
 | Records | [`runs/`](runs/): per run the log (`<part>.md`), the exact prompt, the stream-json transport, the final receipt and the descendant tree seen while it ran. Local paths are replaced by `<fixture>`, `<scratch>`, `~` |
 

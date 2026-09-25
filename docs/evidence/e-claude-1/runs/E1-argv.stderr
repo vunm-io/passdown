@@ -1,0 +1,2 @@
+Ignoring --allowedTools rule ""pattern":"^[^/\\\\\\x00]+(/[^/\\\\\\x00]+)*$"": Wildcard tool name ""pattern":"^[^/\\\\\\x00]+(/[^/\\\\\\x00]+)*$"" is not supported in allow rules. An allow pattern must name the scope it widens — globs are permitted only in the tool position after a literal mcp__<server>__ prefix. Deny and ask rules accept wildcards anywhere.
+Error: Input must be provided either through stdin or as a prompt argument when using --print

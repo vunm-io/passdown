@@ -1,0 +1,17 @@
+62078	62049	0	Fri Sep 25 13:41:44 2026	/Applications/Xcode.app/Contents/Developer/usr/bin/git -c safe.bareRepository=explicit ls-remote https://github.com/anthropics/claude-plugins-official.git HEAD
+62097	62049	0	Fri Sep 25 13:41:44 2026	/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core/git remote-https https://github.com/anthropics/claude-plugins-official.git https://github.com/anthropics/claude-plugins-official.git
+62100	62049	0	Fri Sep 25 13:41:44 2026	/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core/git-remote-https https://github.com/anthropics/claude-plugins-official.git https://github.com/anthropics/claude-plugins-official.git
+62141	62141	0	Fri Sep 25 13:41:44 2026	(zsh)
+62141	62141	0	Fri Sep 25 13:41:44 2026	/bin/zsh -lc if [[ -n "${ZDOTDIR-}" ]]; then\012 rc="$ZDOTDIR/.zshrc"\012elif [[ -n "${HOME-}" ]]; then\012 rc="$HOME/.zshrc"\012else\012 rc=\012fi\012[[ -r "$rc" ]] && . "$rc"\012print '# Snapshot file'\012print '# Unset all aliases to avoid conflicts with functions'\012print 'unalias -a 2>/dev/null || true'\012print '# Functions'\012functions\012print ''\012__codex_snapshot_command() {\012 if command -v "$1" >/dev/null 2>&1; then\012 "$@"\012 else\012 command -p "$@"\012 fi\012}\012setopt_count=$(setopt | __codex_snapshot_command wc -l | __codex_snapshot_command tr -d ' ')\012print "# setopts $setopt_count"\012setopt | __codex_snapshot_command sed 's/^/setopt /'\012print ''\012printf '\0'\012alias_count=$(alias -L | __codex_snapshot_command wc -l | __codex_snapshot_command tr -d ' ')\012print "# aliases $alias_count"\012alias -L\012print ''\012printf '\0'\012(\012 unsetopt rcquotes\012 # The bundled Zsh does not include the zsh/parameter module.\012 for __codex_snapshot_export_name in ${(f)"$(typeset +x)"}; do\012 case "$__codex_snapshot_export_name" in\012 ""|[0-9]*|*[!A-Za-z0-9_]*|PWD|OLDPWD) continue ;;\012 esac\012 case "${(tP)__codex_snapshot_export_name}" in\012 *readonly*) continue ;;\012 *export*) ;;\012 *) continue ;;\012 esac\012 printf '%s\0' "$__codex_snapshot_export_name"\012 typeset -xp "$__codex_snapshot_export_name"\012 printf '\0'\012 done\012)\012\012printf '\0'\012\012
+62186	62141	0	Fri Sep 25 13:41:44 2026	(bash)
+62191	62191	0	Fri Sep 25 13:41:44 2026	(node)
+62191	62191	0	Fri Sep 25 13:41:44 2026	/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node /Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua-repl/bin/cua-repl.mjs
+62193	62193	0	Fri Sep 25 13:41:44 2026	(node_repl)
+62193	62193	0	Fri Sep 25 13:41:44 2026	/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl
+62303	62191	0	Fri Sep 25 13:41:44 2026	(node_repl)
+62303	62191	0	Fri Sep 25 13:41:44 2026	/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl
+62329	62141	0	Fri Sep 25 13:41:44 2026	(chmod)
+62647	62049	0	Fri Sep 25 13:41:45 2026	/Applications/Xcode.app/Contents/Developer/usr/bin/git -c safe.bareRepository=explicit ls-remote git@github.com:vunm-io/passdown.git HEAD
+62648	62049	0	Fri Sep 25 13:41:45 2026	/usr/bin/ssh -o SendEnv=GIT_PROTOCOL git@github.com git-upload-pack 'vunm-io/passdown.git'
+62749	62749	0	Fri Sep 25 13:41:53 2026	(codex-code-mode-)
+62749	62749	0	Fri Sep 25 13:41:53 2026	~/.codex/packages/standalone/releases/0.157.0-aarch64-apple-darwin/bin/codex-code-mode-host

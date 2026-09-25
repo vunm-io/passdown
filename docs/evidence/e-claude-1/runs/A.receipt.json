@@ -1,0 +1,260 @@
+{
+  "schema": "passdown.receipt/v1",
+  "id": "pd-20260925T062057Z-0abea920",
+  "rev": 11,
+  "kind": "read",
+  "continues": null,
+  "chain_root": "pd-20260925T062057Z-0abea920",
+  "created_at": "2026-09-25T06:20:57Z",
+  "task": {
+    "ref": "docs/plan.md#2.1",
+    "planner_repo": "<fixture>",
+    "digest": "sha256:8081820df99dbe6585acf7b7ffd2318547b4364b5a2833ea8c73fa48963f1f40",
+    "inputs": [],
+    "paths": [
+      "docs/review/"
+    ]
+  },
+  "host": {
+    "agent": "claude",
+    "session": "card-measurement",
+    "passdown_version": "0.5.0-beta.1"
+  },
+  "route": {
+    "tier": "external",
+    "reason_code": "review-experiment",
+    "reason": "claude measurement part A"
+  },
+  "executor": {
+    "name": "claude",
+    "card": "claude@1",
+    "version": "draft",
+    "engine": null,
+    "invocation_digest": null
+  },
+  "place": {
+    "repo": "<fixture>",
+    "base_ref": "HEAD",
+    "base_commit": "6250a348a0f3a2f983380ec141010e9844fbc96d",
+    "isolation": "read-only",
+    "profile": null,
+    "location": "<fixture>",
+    "mutation_guard": null
+  },
+  "handle": {
+    "pid": 32093,
+    "pid_started": "Fri Sep 25 13:20:58 2026",
+    "pgid": 32093,
+    "provider_session": null,
+    "runner": null,
+    "containment": "pgroup",
+    "scope": null,
+    "parent_exited_at": "2026-09-25T06:21:12Z"
+  },
+  "claim": {
+    "namespace": "<fixture>/.git/passdown/claims",
+    "key": "repo",
+    "state": "released",
+    "acquired_at": "2026-09-25T06:20:57Z",
+    "transferred_to": null,
+    "released_at": "2026-09-25T06:21:18Z",
+    "release_basis": "resolved"
+  },
+  "execution": {
+    "observation": "stopped",
+    "observed_at": "2026-09-25T06:21:12Z",
+    "stop_evidence": "owner-attested",
+    "attested_by": "card measurement operator",
+    "exit": {
+      "code": 0,
+      "signal": null
+    },
+    "cancel_requested_at": null,
+    "cancel_method": null,
+    "reconciled_at": "2026-09-25T06:21:12Z"
+  },
+  "result": {
+    "ref": "result.json",
+    "disposition": "submitted",
+    "status": "valid",
+    "diagnostics": [],
+    "source": null
+  },
+  "artifact": {
+    "at_arm": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "expected": null,
+    "changed": 0,
+    "out_of_scope": [],
+    "overlaps_baseline": [],
+    "plan_touched": false,
+    "inspections": [
+      {
+        "at": "2026-09-25T06:21:12Z",
+        "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "at": "2026-09-25T06:21:18Z",
+        "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "target_at_arm": null,
+    "target_after": null
+  },
+  "verdict": {
+    "acceptance": "accepted",
+    "reason_code": null,
+    "reason": null,
+    "task_digest": "sha256:8081820df99dbe6585acf7b7ffd2318547b4364b5a2833ea8c73fa48963f1f40",
+    "artifact_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "checks": [
+      {
+        "name": "true",
+        "exit": 0,
+        "output": "checks/1.txt"
+      }
+    ],
+    "integration": null,
+    "scope_override": null,
+    "at": "2026-09-25T06:21:18Z",
+    "projected_at": "2026-09-25T06:21:18Z"
+  },
+  "transitions": [
+    {
+      "rev": 1,
+      "field": "claim.state",
+      "from": null,
+      "to": "requested",
+      "at": "2026-09-25T06:20:57Z",
+      "note": "new"
+    },
+    {
+      "rev": 2,
+      "field": "claim.state",
+      "from": "requested",
+      "to": "held",
+      "at": "2026-09-25T06:20:57Z",
+      "note": "new: claim acquired"
+    },
+    {
+      "rev": 3,
+      "field": "execution.observation",
+      "from": "prepared",
+      "to": "unknown",
+      "at": "2026-09-25T06:20:57Z",
+      "note": "arm"
+    },
+    {
+      "rev": 3,
+      "field": "artifact.at_arm",
+      "from": null,
+      "to": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "at": "2026-09-25T06:20:57Z",
+      "note": "arm"
+    },
+    {
+      "rev": 4,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "running",
+      "at": "2026-09-25T06:20:58Z",
+      "note": "observe running"
+    },
+    {
+      "rev": 4,
+      "field": "handle.pid",
+      "from": null,
+      "to": 32093,
+      "at": "2026-09-25T06:20:58Z",
+      "note": "observe running"
+    },
+    {
+      "rev": 5,
+      "field": "execution.observation",
+      "from": "running",
+      "to": "unknown",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "observe unknown: parent exited (0); descendants not ruled out"
+    },
+    {
+      "rev": 5,
+      "field": "handle.parent_exited_at",
+      "from": null,
+      "to": "2026-09-25T06:21:12Z",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "observe unknown: parent exited (0); descendants not ruled out"
+    },
+    {
+      "rev": 6,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "stopped",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "observe stopped: owner-attested"
+    },
+    {
+      "rev": 6,
+      "field": "execution.stop_evidence",
+      "from": null,
+      "to": "owner-attested",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "observe stopped: owner-attested"
+    },
+    {
+      "rev": 7,
+      "field": "result.status",
+      "from": "none",
+      "to": "valid",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "result"
+    },
+    {
+      "rev": 8,
+      "field": "execution.reconciled_at",
+      "from": null,
+      "to": "2026-09-25T06:21:12Z",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 8,
+      "field": "artifact.digest",
+      "from": null,
+      "to": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "at": "2026-09-25T06:21:12Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 9,
+      "field": "receipt",
+      "from": null,
+      "to": null,
+      "at": "2026-09-25T06:21:18Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 10,
+      "field": "verdict.acceptance",
+      "from": "pending",
+      "to": "accepted",
+      "at": "2026-09-25T06:21:18Z",
+      "note": "verdict: accepted"
+    },
+    {
+      "rev": 11,
+      "field": "verdict.projected_at",
+      "from": null,
+      "to": "2026-09-25T06:21:18Z",
+      "at": "2026-09-25T06:21:18Z",
+      "note": "projected"
+    },
+    {
+      "rev": 11,
+      "field": "claim.state",
+      "from": "held",
+      "to": "released",
+      "at": "2026-09-25T06:21:18Z",
+      "note": "projected"
+    }
+  ]
+}

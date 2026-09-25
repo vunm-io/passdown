@@ -6,7 +6,17 @@ how to launch it headless, where its final output lands, how to extract the
 it, and which stop evidence is safe. `passdown-dispatch` keeps the policy;
 cards keep the volatile mechanics.
 
-Shipped here: `kiro-cli.md` (measured by E-KIRO-1 on kiro-cli 2.24.0).
+Shipped here, each measured through the attempt lifecycle (records in
+`docs/evidence/` of the passdown repository):
+
+| Card | Measured on | Stop evidence in practice |
+|---|---|---|
+| `kiro-cli.md` | kiro-cli 2.24.0 (E-KIRO-1) | owner attestation: its tool shells stayed in the launch process group, but a trusted shell could detach |
+| `claude.md` | Claude Code 2.1.193 (E-CLAUDE-1) | owner attestation: Bash tool shells run in their own process groups and survived `SIGKILL` |
+| `codex.md` | codex-cli 0.157.0 (E-CODEX-1) | owner attestation: tool shells run in their own process groups and survived `SIGKILL` |
+
+In every case cancel with `SIGINT` to the launch process group first; all
+three ended their whole tree on it.
 
 ## Lookup
 
@@ -90,4 +100,3 @@ dispatch contract:
 | Executor | Headless invocation | Notes |
 |---|---|---|
 | `agy` (Antigravity CLI) | `agy --print "<prompt>" [--add-dir <path>]` | `--continue` resumes the last thread |
-| `codex` | Configured Codex adapter on a non-Codex host | On Claude Code this may be `/codex:rescue`; skip it when Codex is the host |

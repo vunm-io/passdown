@@ -1,0 +1,28 @@
+55541	55511	0	Fri Sep 25 13:39:10 2026	/Applications/Xcode.app/Contents/Developer/usr/bin/git -c safe.bareRepository=explicit ls-remote https://github.com/anthropics/claude-plugins-official.git HEAD
+55561	55511	0	Fri Sep 25 13:39:10 2026	/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core/git remote-https https://github.com/anthropics/claude-plugins-official.git https://github.com/anthropics/claude-plugins-official.git
+55564	55511	0	Fri Sep 25 13:39:10 2026	/Applications/Xcode.app/Contents/Developer/usr/libexec/git-core/git-remote-https https://github.com/anthropics/claude-plugins-official.git https://github.com/anthropics/claude-plugins-official.git
+55607	55607	0	Fri Sep 25 13:39:10 2026	(zsh)
+55607	55607	0	Fri Sep 25 13:39:10 2026	/bin/zsh -lc if [[ -n "${ZDOTDIR-}" ]]; then\012 rc="$ZDOTDIR/.zshrc"\012elif [[ -n "${HOME-}" ]]; then\012 rc="$HOME/.zshrc"\012else\012 rc=\012fi\012[[ -r "$rc" ]] && . "$rc"\012print '# Snapshot file'\012print '# Unset all aliases to avoid conflicts with functions'\012print 'unalias -a 2>/dev/null || true'\012print '# Functions'\012functions\012print ''\012__codex_snapshot_command() {\012 if command -v "$1" >/dev/null 2>&1; then\012 "$@"\012 else\012 command -p "$@"\012 fi\012}\012setopt_count=$(setopt | __codex_snapshot_command wc -l | __codex_snapshot_command tr -d ' ')\012print "# setopts $setopt_count"\012setopt | __codex_snapshot_command sed 's/^/setopt /'\012print ''\012printf '\0'\012alias_count=$(alias -L | __codex_snapshot_command wc -l | __codex_snapshot_command tr -d ' ')\012print "# aliases $alias_count"\012alias -L\012print ''\012printf '\0'\012(\012 unsetopt rcquotes\012 # The bundled Zsh does not include the zsh/parameter module.\012 for __codex_snapshot_export_name in ${(f)"$(typeset +x)"}; do\012 case "$__codex_snapshot_export_name" in\012 ""|[0-9]*|*[!A-Za-z0-9_]*|PWD|OLDPWD) continue ;;\012 esac\012 case "${(tP)__codex_snapshot_export_name}" in\012 *readonly*) continue ;;\012 *export*) ;;\012 *) continue ;;\012 esac\012 printf '%s\0' "$__codex_snapshot_export_name"\012 typeset -xp "$__codex_snapshot_export_name"\012 printf '\0'\012 done\012)\012\012printf '\0'\012\012
+55653	55607	0	Fri Sep 25 13:39:10 2026	(bash)
+55659	55659	0	Fri Sep 25 13:39:10 2026	(node_repl)
+55659	55659	0	Fri Sep 25 13:39:10 2026	/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl
+55660	55660	0	Fri Sep 25 13:39:10 2026	(node)
+55660	55660	0	Fri Sep 25 13:39:10 2026	/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node /Applications/ChatGPT.app/Contents/Resources/cua_node/lib/node_modules/@oai/cua-repl/bin/cua-repl.mjs
+55745	55745	0	Fri Sep 25 13:39:10 2026	(git)
+55746	55746	0	Fri Sep 25 13:39:10 2026	(git)
+55756	55756	0	Fri Sep 25 13:39:10 2026	(git)
+55766	55766	0	Fri Sep 25 13:39:10 2026	(git)
+55767	55607	0	Fri Sep 25 13:39:10 2026	(bash)
+55780	55660	0	Fri Sep 25 13:39:10 2026	(node_repl)
+55780	55660	0	Fri Sep 25 13:39:10 2026	/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl
+56105	55511	0	Fri Sep 25 13:39:11 2026	/Applications/Xcode.app/Contents/Developer/usr/bin/git -c safe.bareRepository=explicit ls-remote git@github.com:vunm-io/passdown.git HEAD
+56106	55511	0	Fri Sep 25 13:39:11 2026	/usr/bin/ssh -o SendEnv=GIT_PROTOCOL git@github.com git-upload-pack 'vunm-io/passdown.git'
+56194	56194	0	Fri Sep 25 13:39:21 2026	~/.codex/packages/standalone/releases/0.157.0-aarch64-apple-darwin/bin/codex-code-mode-host
+56289	56289	0	Fri Sep 25 13:39:32 2026	(zsh)
+56290	56289	0	Fri Sep 25 13:39:32 2026	(git)
+56371	56371	0	Fri Sep 25 13:39:40 2026	/bin/zsh -c grep -qx hello src/greeting.txt\012python3 -c 'from pathlib import Path; assert Path("src/greeting.txt").read_bytes() == b"hello\n"; print("Exact bytes verified: hello followed by one newline")'\012git status --short
+56373	56371	0	Fri Sep 25 13:39:40 2026	~/.pyenv/versions/3.14.6/bin/python3 -c from pathlib import Path; assert Path("src/greeting.txt").read_bytes() == b"hello\n"; print("Exact bytes verified: hello followed by one newline")
+56383	56371	0	Fri Sep 25 13:39:40 2026	(bash)
+56389	56371	0	Fri Sep 25 13:39:40 2026	(bash)
+56390	56371	0	Fri Sep 25 13:39:40 2026	(bash)
+56391	56371	0	Fri Sep 25 13:39:40 2026	(bash)
