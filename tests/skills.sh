@@ -238,6 +238,36 @@ require_text_block "$pickup" "\\[x\\].*Dispatched:.*accepted|\\[x\\].*accepted.*
 require_text_block "$pickup" "not accepted|still pending|as pending" \
   "pickup treats unverified delegated completion as not accepted"
 
+# v0.5 recovery (PDN-0004 S5): pickup reads the attempt store read-only and
+# classifies; handoff records open attempts. The class names are checked
+# against the helper behaviorally in tests/interrupt.sh PICKUP.
+require_text_block "$pickup" "Pickup is \\*\\*read-only\\*\\*" \
+  "pickup is read-only"
+require_text_block "$pickup" "list +--unresolved" \
+  "pickup lists unresolved attempts through the helper"
+require_text "$pickup" "^## Recovery classes" \
+  "pickup defines the recovery classes"
+require_text_block "$pickup" "never run +\`abandon\`, +\`observe\`" \
+  "pickup never runs a mutating helper command"
+require_text_block "$pickup" "open_attempts" \
+  "pickup reads the handoff's open attempts"
+require_text_block "$pickup" "A task with any unresolved attempt is not accepted" \
+  "pickup never counts a task with an unresolved attempt as accepted"
+require_text_block "$pickup" "no +receipt at all for that task" \
+  "pickup honors a legacy line only for a task without receipts"
+require_text_block "$pickup" "Nothing uncertain is proposed as a retry" \
+  "pickup never proposes retrying an uncertain attempt"
+for skill in passdown-pickup passdown-handoff; do
+  require_text_block "$skills_root/$skill/SKILL.md" "attempt store not +readable: jq missing" \
+    "$skill reports an unreadable store instead of guessing"
+done
+require_text "$handoff" "open_attempts:" \
+  "handoff frontmatter lists open attempts"
+require_text_block "$handoff" "never tick a task that has an unresolved attempt" \
+  "handoff never ticks a task with an unresolved attempt"
+require_text_block "$handoff" "Handoff never resolves an attempt" \
+  "handoff never resolves an attempt"
+
 schema="$repo_root/schemas/passdown/schema.yaml"
 apply_instruction="$(sed -n '/^apply:/,$p' "$schema")"
 grep -q "assigned" <<<"$apply_instruction" ||

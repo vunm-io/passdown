@@ -23,6 +23,7 @@ The effective configuration should contain:
 ## passdown
 - log_dir: <path for session logs>
 - log_language: en   # or another language for human-facing logs
+- attempt_dir: <dir> # optional; default <git common dir>/passdown/attempts
 ```
 
 If a required key is still missing, ask where session logs should live and
@@ -46,6 +47,8 @@ suggest adding it to the appropriate `AGENTS.md`.
    branch: <git branch>
    agent: <agent identity — the host name (claude|codex|kiro) unless the workspace names agents>
    plan: <path to the plan/change this session executed, or none>
+   open_attempts:        # only when delegated attempts are unresolved
+     - pd-20260921T101530Z-3f9a1c2e
    ---
    ```
 
@@ -59,6 +62,15 @@ suggest adding it to the appropriate `AGENTS.md`.
      - repo-a/openspec/changes/slug-0009-short-name/
    ```
 
+   `open_attempts` lists every attempt that is unresolved when the log is
+   written: run `passdown-attempt --json list --unresolved` (the helper in
+   this skill's `scripts/` directory, with `--store <attempt_dir>` when that
+   key is set) in each repository that holds a plan this session touched,
+   and list every ID it prints. Omit the key when there are none. The next
+   shift uses it to tell a known open attempt from an orphaned one. If `jq`
+   is missing, write "attempt store not readable: jq missing" in Caveats /
+   traps instead of guessing.
+
    The `agent` value must match the `<agent>` field in the filename. Body
    sections:
    - **Summary**: 2–5 sentences — what was worked on and the outcome.
@@ -67,7 +79,10 @@ suggest adding it to the appropriate `AGENTS.md`.
    - **Next steps**: checkboxes the next session can start on immediately.
    - **Caveats / traps**: known pitfalls discovered this session. This is
      the highest-value section — task state lives in the plan, but a fresh
-     trap lives nowhere else yet (step 4 promotes the durable ones).
+     trap lives nowhere else yet (step 4 promotes the durable ones). Name
+     every unresolved attempt here too: its ID, task, recovery class,
+     location, and whether it has ownership risk (a worker may still be
+     writing, so nobody may start another writer there).
 
 3. **Sync task state**: if executing against a plan, update its checkboxes
    to match reality (for OpenSpec work: `tasks.md` of the change). Reality
@@ -76,11 +91,14 @@ suggest adding it to the appropriate `AGENTS.md`.
      verification passed;
    - a delegated task is `[x]` only when its latest `Dispatched:` line is
      an accepted verdict as `passdown-dispatch` defines it: `accepted`
-     with a check the host ran. Lines written before the `accepted` wording
-     existed count as accepted when they report success and name a host
-     check after `verified:` — keep those `[x]`. Never tick a delegated
+     with a check the host ran, and either naming `attempt: <id>` whose
+     receipt is `accepted` for this task, or a host `main` line, or a legacy
+     line for a task with no receipt at all. Lines written before the `accepted` wording existed count as accepted when they report success and name a host check after `verified:`
+     — keep those `[x]` under the same condition. Never tick a delegated
      task because the worker reported success, because its files exist, or
      because the worker ticked the box itself;
+   - never tick a task that has an unresolved attempt, whatever its lines
+     say; it goes back to (or stays) `[ ]` and is named in Caveats / traps;
    - delegated work that is still unverified goes back to (or stays) `[ ]`,
      and the log's Caveats / traps names it as unverified so the next shift
      verifies it before building on it.
@@ -103,6 +121,9 @@ suggest adding it to the appropriate `AGENTS.md`.
 
 ## Rules
 
+- Handoff never resolves an attempt: no `abandon`, `observe`, `verdict`,
+  `release-claim` or other mutating helper command. It records what is open;
+  the next shift reconciles it through `passdown-dispatch`.
 - The log complements, never duplicates, the plan: plan = which tasks are
   done; log = why we stopped here and what to avoid.
 - Keep it short enough that the next session actually reads all of it.

@@ -116,9 +116,26 @@ schema, and a session log, so you can diff behavior instead of guessing.
       `status`/`branch`/`agent`/`plan` frontmatter; repeat with the same
       topic and confirm it creates another file rather than overwriting
 - [ ] **passdown-pickup**: in `examples/basic-workspace/`, run pickup and
-      confirm it reads the newest log's frontmatter, cross-checks
-      `openspec/changes/pkg-0001-demo/tasks.md`, and produces a briefing
-      without starting execution
+      confirm it reads the newest log's frontmatter
+      (`2026-07-06_passdown-demo-dispatch_claude-101500.md`), cross-checks
+      `openspec/changes/pkg-0001-demo/tasks.md`, reports attempt
+      `pd-20260706T100900Z-5b1e7c2a` as named in the handoff but missing
+      from the store (the example ships no store) with ownership risk, and
+      produces a briefing without starting execution or writing any file
+- [ ] **pickup with a live attempt**: in a scratch Git repository laid out
+      like the fixture `tests/interrupt.sh` builds in `setup()`
+      (`docs/plan.md` with tasks 1.1–2.1), run
+      `REF_REPO=$PWD REF_JOURNAL=$PWD/../journal REF_CRASH_AT=after-first-write tests/harness/ref-host dispatch --mode write-then-sleep`
+      from the passdown checkout, then run pickup there live. Confirm it
+      lists the attempt as C3 with ownership risk, probes it, proposes to
+      wait or cancel (never a second writer), and that `git status` and the
+      store are unchanged afterwards. Kill the worker's process group when
+      done
+- [ ] **handoff with an open attempt**: end that session with
+      `passdown-handoff` while the attempt is still unresolved; confirm the
+      log's frontmatter lists it under `open_attempts`, Caveats / traps
+      names its class, location and ownership risk, and task 1.1 stays
+      `[ ]`
 - [ ] **pickup flags unverified completion**: in a scratch copy, tick task
       1.1 `[x]` and add `- Dispatched: agy (2026-09-21) — rejected: tests
       fail; verified: npm test` under it; confirm pickup reports 1.1 as
