@@ -2025,6 +2025,29 @@ ships it.
 - Rollback: revert; dispatch still records receipts, pickup falls back to the
   v0.4 plan-only checks.
 
+**Implementation notes (S5).**
+
+- Pickup names only read-only helper commands (`list`, `claims`, `probe`,
+  `digest`, `validate`) and forbids the mutating ones by name. The class
+  table in the pickup skill carries the same C1–C11 rows as dispatch
+  *Reconcile*, with the proposed action and the ownership risk.
+- The C9 age threshold uses the attempt's dispatch budget. Cards have no
+  budget field (§18), so the skill falls back to one hour when none is
+  recorded. The reference host takes it as `--budget`.
+- `tests/interrupt.sh PICKUP` is the S5 acceptance check. It extracts the
+  class names from the helper's `CLASS_JQ` and from the reference pickup,
+  and requires them to equal the rows of both skill tables. It also runs
+  the reference pickup against a live writer and a handoff that names an
+  attempt missing from the store, and requires every file under `docs/`,
+  `src/` and the attempt store to be byte-identical afterwards. Dropping a
+  class row from either skill, or letting pickup write, fails it.
+- The reference host now reads `open_attempts` from a handoff log's
+  frontmatter (F16 writes a real log), and reports an `open_attempts` ID
+  that has no receipt as *inconsistent* (§23, "Store deleted").
+- The example workspace keeps its v0.4 log and adds a later handoff with
+  one open attempt. Because the example ships no store, pickup there shows
+  the missing-store case.
+
 **S6 — Executor reference cards + E-KIRO-1.**
 - Files: `passdown-dispatch/references/executors/{claude,codex,kiro-cli}.md`,
   `docs/EXECUTOR_SETUP.md` (measuring and writing a card),

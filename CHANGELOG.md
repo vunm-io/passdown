@@ -83,12 +83,32 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   - `templates/plan.md` and `templates/AGENTS.thin.md` document the attempt
     reference and the new optional keys `attempt_dir`, `worktree_dir`,
     `executor_refs` and `concurrency_profiles`.
+- `passdown-pickup` and `passdown-handoff` recover interrupted dispatches
+  (PDN-0004, slice S5):
+  - Pickup reads the attempt store read-only (`list --unresolved`,
+    `claims`, `probe`). It classifies every unresolved attempt C1–C11 with
+    its ownership risk and one proposed action, carried out later through
+    dispatch *Reconcile*, and reports a handoff attempt missing from the
+    store. It never writes a receipt, claim, plan or log.
+  - Pickup's completion check follows the dispatch rule: a task with an
+    unresolved attempt is never accepted, the latest `Dispatched:` line
+    decides, and a legacy line counts only for a task with no receipts.
+  - Handoff lists unresolved attempts in a new optional `open_attempts`
+    frontmatter key and names them in Caveats / traps. It never resolves
+    an attempt and never ticks a task that has one.
+  - A missing `jq` is reported as "attempt store not readable" instead of
+    guessed around. The example workspace gains a handoff with an open
+    attempt, and `docs/SMOKE_TEST.md` covers both skills against a live
+    attempt.
 - The reference host (`tests/harness/ref-host`) prints the skill's step names,
   and a new harness scenario (`tests/interrupt.sh STEPS`) checks that the
   host performs the skill's numbered steps by name and in order. The reference
   host now also takes the settle inspection a card asks for, and F18b uses a
   card that wrongly claims its worker never detaches and releases the late
-  write inside that window.
+  write inside that window. For S5, its pickup reads `open_attempts` from a
+  handoff log's frontmatter, and a new scenario (`tests/interrupt.sh
+  PICKUP`) checks that the helper, the pickup skill and dispatch Reconcile
+  use one set of class names, and that pickup changes no file.
 
 ### Fixed
 
