@@ -124,7 +124,8 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
     unless it ran in a containment scope. Only Codex has a measured
     read-only mode that does not depend on inherited configuration
     (`--sandbox read-only --ignore-user-config`), so only Codex reads can
-    skip the writer claim.
+    skip the writer claim, and only through that read-only mode: no card
+    marks `sandbox_confined_writes` verified.
   - The measurements found that a worker follows a hand-written
     description of the result schema exactly, mistakes included. The
     dispatch skill now puts the schema itself into the prompt.
