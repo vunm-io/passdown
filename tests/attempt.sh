@@ -858,7 +858,67 @@ group_list() {
   pass "validate reports a held projection the claim file does not back"
 }
 
-groups="conformance lifecycle transitions acceptance claims chains crash races digests plan_freshness symlinks list"
+group_cards() {
+  local dir="$scratch/cards" good bad
+  mkdir -p "$dir"
+  good="$dir/demo.md"
+  cat >"$good" <<'CARD'
+---
+card: demo
+card_version: 1
+measured:
+  date: 2026-09-25
+  host_os: test
+  cli_version: 1.0.0
+  engine: null
+  by: tests/attempt.sh
+  evidence: docs/evidence/demo/run.log
+capabilities:
+  headless: verified
+  descendants_may_outlive: unverified
+invocation:
+  headless: 'demo --print "<prompt>"'
+  output_capture: stdout
+  result_extraction: last line that is a JSON object
+  resume: null
+  cancel: { signal: INT, target: pgroup, grace_seconds: 5, then: TERM }
+stop:
+  containment: [pgroup]
+  settle_seconds: 3
+permissions:
+  mechanism: none needed
+environment_constraints: []
+discovery_hint: pgrep -fl demo
+toolchain_check: null
+---
+A test card.
+CARD
+  ok "a complete card" validate --file "$good" --as card
+  # Each broken variant must be refused with the rule it breaks.
+  expect_card() { # <sed expression> <expected message>
+    bad="$dir/bad/demo.md"
+    mkdir -p "$dir/bad"
+    sed "$1" "$good" >"$bad"
+    run 4 "card: $2" validate --file "$bad" --as card
+    grep -q -- "$2" <<<"$out" || fail "card: expected '$2', got: $out"
+  }
+  expect_card '/^  headless: .demo/d' "invocation.headless is required"
+  expect_card '/result_extraction:/d' "invocation.result_extraction is required"
+  expect_card 's/settle_seconds: 3/settle_seconds: 0/' "settle_seconds must be above zero"
+  expect_card 's/headless: verified/headless: yes/' "is not verified, unsupported or unverified"
+  expect_card 's/  headless: verified/  headless: verified\n  telepathy: verified/' "unknown-capability"
+  expect_card 's#evidence: docs/evidence/demo/run.log#evidence: none#' "needs recorded evidence"
+  expect_card 's/resume: null/resume: demo --resume <id>/' "only with resume_session verified"
+  expect_card 's/^card: demo/card: other/' "does not match the file name"
+  expect_card 's/date: 2026-09-25/date: 2026-09-2x/' "must be YYYY-MM-DD"
+  # A measured no-detach card may keep a zero settle window.
+  sed -e 's/descendants_may_outlive: unverified/descendants_may_outlive: unsupported/' \
+    -e 's/settle_seconds: 3/settle_seconds: 0/' "$good" >"$dir/bad/demo.md"
+  ok "measured no-detach with zero settle" validate --file "$dir/bad/demo.md" --as card
+  pass "validate --as card enforces the card format, evidence and launch eligibility"
+}
+
+groups="conformance lifecycle transitions acceptance claims chains crash races digests plan_freshness symlinks list cards"
 selected="${*:-$groups}"
 for g in $selected; do
   case " $groups " in *" $g "*) "group_$g" ;; *) fail "unknown group $g" ;; esac

@@ -592,6 +592,52 @@ card_json() { # <card.md> -> flat JSON of its YAML frontmatter (two levels)
     }' "$1" | jq -R -n -c '[inputs | split("\t") | {key: .[0], value: (.[1:] | join("\t"))}] | from_entries'
 }
 
+# Card rules (design section 18, and the eligibility rule of the dispatch
+# skill): known keys and capability values, evidence behind every
+# `verified`, and the minimum a card needs before a host may launch with it.
+CARD_JQ='
+  def absent(k): ((.[k] // "") | tostring) as $v | ($v == "" or $v == "null" or $v == "~");
+  ["headless", "structured_output", "native_schema_enforcement", "resume_session",
+   "session_id_observable", "exit_code_meaningful", "descendants_may_outlive",
+   "cancel_signal_honored", "read_only_mode", "sandbox_confined_writes"] as $caps
+  | ["card", "card_version", "measured", "capabilities", "invocation", "stop", "permissions",
+     "environment_constraints", "discovery_hint", "toolchain_check"] as $sections
+  | ["date", "host_os", "cli_version", "engine", "by", "evidence"] as $measured
+  | ["headless", "output_capture", "result_extraction", "resume", "cancel"] as $invocation
+  | ["containment", "settle_seconds"] as $stop
+  | ["mechanism", "notes"] as $permissions
+  | . as $c
+  | [ ( keys[] | . as $k | ($k | split(".")) as $p
+        | if ($p | length) == 1 then (if ($sections | index($p[0])) then empty else "unknown-key: \($k)" end)
+          elif $p[0] == "capabilities" then (if ($caps | index($p[1])) then empty else "unknown-capability: \($k)" end)
+          elif $p[0] == "measured" then (if ($measured | index($p[1])) then empty else "unknown-key: \($k)" end)
+          elif $p[0] == "invocation" then (if ($invocation | index($p[1])) then empty else "unknown-key: \($k)" end)
+          elif $p[0] == "stop" then (if ($stop | index($p[1])) then empty else "unknown-key: \($k)" end)
+          elif $p[0] == "permissions" then (if ($permissions | index($p[1])) then empty else "unknown-key: \($k)" end)
+          else "unknown-key: \($k)" end ),
+      ( if (($c.card // "") | test("^[a-z0-9][a-z0-9-]*$")) then empty else "card: must be a lowercase executor name" end ),
+      ( if $base != "" and ($c.card // "") != $base then "card: \($c.card // "") does not match the file name \($base).md" else empty end ),
+      ( if (($c.card_version // "") | test("^[1-9][0-9]*$")) then empty else "card_version: must be a positive integer" end ),
+      ( if (($c["measured.date"] // "") | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")) then empty else "measured.date: must be YYYY-MM-DD" end ),
+      ( ["cli_version", "by", "evidence"][] as $k | select($c | absent("measured." + $k)) | "measured.\($k): required" ),
+      ( $caps[] as $k | ($c["capabilities." + $k] // "unverified") as $v
+        | select(["verified", "unsupported", "unverified"] | index($v) | not)
+        | "capabilities.\($k): \($v) is not verified, unsupported or unverified" ),
+      ( select([$caps[] as $k | $c["capabilities." + $k] // "unverified" | select(. != "unverified")] | length > 0)
+        | select(($c["measured.evidence"] // "none") | test("^(none|null|~)?( .*)?$"))
+        | "measured.evidence: a verified or unsupported capability needs recorded evidence" ),
+      ( ["headless", "output_capture", "result_extraction"][] as $k | select($c | absent("invocation." + $k))
+        | "eligibility: invocation.\($k) is required to launch" ),
+      ( ($c["stop.settle_seconds"] // "") as $s
+        | if ($s | tostring | test("^[0-9]+$") | not) then "stop.settle_seconds: must be a whole number of seconds"
+          elif ($s | tonumber) == 0 and ($c["capabilities.descendants_may_outlive"] // "unverified") != "unsupported"
+          then "eligibility: stop.settle_seconds must be above zero unless descendants_may_outlive is unsupported"
+          else empty end ),
+      ( select(($c | absent("invocation.resume") | not) and ($c["capabilities.resume_session"] // "unverified") != "verified")
+        | "invocation.resume: only with resume_session verified" )
+    ]
+  | {valid: (. == []), errors: [], semantic: .}'
+
 card_value() { # <id> <key> <default>
   local f="$STORE/$1/card.json"
   if [ -f "$f" ]; then
@@ -2031,6 +2077,11 @@ cmd_validate() {
     local out
     case "$as" in
       result) out="$(validate_result_file "$file" "$attempt")" ;;
+      card)
+        local base
+        base="$(basename "$file" .md)"
+        out="$(card_json "$file" | jq -c --arg base "$base" "$CARD_JQ")"
+        ;;
       receipt | claim)
         if [ "$(jq -s 'length' "$file" 2>/dev/null || echo x)" != 1 ]; then
           out='{"valid":false,"errors":[{"path":"","keyword":"parse"}],"semantic":[]}'
@@ -2042,7 +2093,7 @@ cmd_validate() {
             -c --slurpfile s "$(schema_path "$as")" --arg kind "$as" "$file")"
         fi
         ;;
-      *) die $E_USAGE "validate --file needs --as receipt|result|claim" ;;
+      *) die $E_USAGE "validate --file needs --as receipt|result|claim|card" ;;
     esac
     if [ "$JSON_OUT" = 1 ]; then printf '%s\n' "$out"; else
       jq -r 'if .valid then "valid" else "invalid: " + ([(.errors[]? | "\(.keyword) at \(if .path == "" then "/" else .path end)"), (.semantic[]?), (.diagnostics[]?)] | unique | join("; ")) end' <<<"$out"
@@ -2118,7 +2169,7 @@ usage: passdown-attempt [--store <dir>] [--card-dir <dir>] [--json] <command> [a
   release-claim <id> --rev <n> --attested-by <who> --reason <text> [--repo <target>]
   claims [--repo <target>]
   digest task --plan <file> --task <id> | digest artifact <id>
-  validate <id>... | validate --all | validate --file <f> --as receipt|result|claim [--attempt <id>]
+  validate <id>... | validate --all | validate --file <f> --as receipt|result|claim|card [--attempt <id>]
   list [--unresolved] [--task <plan#id>]
   version
 
