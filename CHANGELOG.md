@@ -106,6 +106,27 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
     guessed around. The example workspace gains a handoff with an open
     attempt, and `docs/SMOKE_TEST.md` covers both skills against a live
     attempt.
+- Executor cards (PDN-0004, slice S6):
+  - `passdown-attempt validate --file <card> --as card` checks a card's
+    format, the evidence behind every measured value, and what a launch
+    needs. `tests/skills.sh` runs it on every shipped card.
+  - Measured cards for `kiro-cli` 2.24.0, Claude Code 2.1.193 and
+    codex-cli 0.157.0. Each is based on runs through the real attempt
+    lifecycle, recorded in `docs/evidence/e-kiro-1/`, `e-claude-1/` and
+    `e-codex-1/` with a shared fixture and runner. All three support
+    headless structured output, session resume and a read-only mode, and
+    end their tree on `SIGINT` to the process group. None can enforce
+    passdown's result schema natively. Claude Code and Codex run tool
+    shells in separate process groups that survive `SIGKILL` and keep
+    writing, so an empty process group is never a safe stop for them;
+    every attempt on the three executors ends with owner attestation
+    unless it ran in a containment scope.
+  - The measurements found that a worker follows a hand-written
+    description of the result schema exactly, mistakes included. The
+    dispatch skill now puts the schema itself into the prompt.
+  - `docs/EXECUTOR_SETUP.md` is now the guide to measuring and writing a
+    card. The executor README drops the invocation hints now covered by
+    cards; only `agy` remains, as an unmeasured note.
 - The reference host (`tests/harness/ref-host`) prints the skill's step names,
   and a new harness scenario (`tests/interrupt.sh STEPS`) checks that the
   host performs the skill's numbered steps by name and in order. The reference
