@@ -96,6 +96,12 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   - Handoff lists unresolved attempts in a new optional `open_attempts`
     frontmatter key and names them in Caveats / traps. It never resolves
     an attempt and never ticks a task that has one.
+  - Handoff carries forward every ID from the previous handoff's
+    `open_attempts` until its receipt shows it resolved; an ID whose receipt
+    is missing stays listed (`# receipt missing`) until the owner confirms
+    no worker remains. `passdown-attempt list` warns when the store is
+    absent ("absent, not empty") and reports `idle_seconds` since the last
+    receipt transition, which pickup uses for C9.
   - A missing `jq` is reported as "attempt store not readable" instead of
     guessed around. The example workspace gains a handoff with an open
     attempt, and `docs/SMOKE_TEST.md` covers both skills against a live

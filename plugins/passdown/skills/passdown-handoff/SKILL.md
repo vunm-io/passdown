@@ -47,8 +47,9 @@ suggest adding it to the appropriate `AGENTS.md`.
    branch: <git branch>
    agent: <agent identity — the host name (claude|codex|kiro) unless the workspace names agents>
    plan: <path to the plan/change this session executed, or none>
-   open_attempts:        # only when delegated attempts are unresolved
+   open_attempts:        # only when delegated attempts are not known to be resolved
      - pd-20260921T101530Z-3f9a1c2e
+     - pd-20260920T090000Z-1a2b3c4d   # receipt missing
    ---
    ```
 
@@ -62,14 +63,24 @@ suggest adding it to the appropriate `AGENTS.md`.
      - repo-a/openspec/changes/slug-0009-short-name/
    ```
 
-   `open_attempts` lists every attempt that is unresolved when the log is
-   written: run `passdown-attempt --json list --unresolved` (the helper in
-   this skill's `scripts/` directory, with `--store <attempt_dir>` when that
-   key is set) in each repository that holds a plan this session touched,
-   and list every ID it prints. Omit the key when there are none. The next
-   shift uses it to tell a known open attempt from an orphaned one. If `jq`
-   is missing, write "attempt store not readable: jq missing" in Caveats /
-   traps instead of guessing.
+   `open_attempts` lists every attempt that is not known to be resolved when
+   the log is written. It combines two sources:
+   - every ID that `passdown-attempt --json list --unresolved` prints (the
+     helper in this skill's `scripts/` directory, with `--store
+     <attempt_dir>` when that key is set) in each repository that holds a
+     plan this session touched;
+   - every ID in the `open_attempts` of the previous handoff (the newest
+     earlier log in `<log_dir>`), unless its receipt exists and `list` shows
+     it with no recovery class. An ID whose receipt is missing — its store is
+     absent (the helper warns "absent, not empty") or was deleted — stays
+     listed, marked `# receipt missing`, until the owner confirms that no
+     worker for it remains; record that confirmation in Caveats / traps when
+     you drop it.
+   Omit the key only when both sources are empty. An absent store is never
+   evidence that nothing is open. The next shift uses this list to tell a
+   known open attempt from an orphaned one. If `jq` is missing, carry the
+   previous handoff's IDs forward unchanged and write "attempt store not
+   readable: jq missing" in Caveats / traps instead of guessing.
 
    The `agent` value must match the `<agent>` field in the filename. Body
    sections:

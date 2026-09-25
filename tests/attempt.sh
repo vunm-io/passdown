@@ -831,6 +831,23 @@ group_list() {
   [ "$(jq -r '.[0].verdict' <<<"$out")" = accepted ] || fail "json list"
   pass "list classifies C1, C2, C3, C8, C5, C4, C7 and C6"
 
+  # Inactivity is measured from the last transition, not from creation (C9).
+  local idle="$scratch/list-idle"
+  new_repo "$idle"
+  store="$idle/.git/passdown/attempts"
+  new_write "$idle"
+  b="$id"
+  sleep 2
+  ok "arm later" --store "$store" arm "$b" --rev "$(rev "$b")" --prompt "$prompt_file"
+  ok "json list" --store "$store" --json list --unresolved
+  [ "$(jq -r --arg b "$b" '.[] | select(.id == $b) | (.age_seconds >= 2 and .idle_seconds <= 1)' <<<"$out")" = true ] ||
+    fail "idle_seconds does not follow the last transition: $out"
+  # An absent store is reported, not mistaken for a verified empty one.
+  ok "list without a store" --store "$scratch/list-no-store/attempts" --json list --unresolved
+  [ "$out" = "[]" ] && grep -q "absent, not empty" <<<"$err" || fail "absent store not reported: $err"
+  store="$repo/.git/passdown/attempts"
+  pass "list measures inactivity from the last transition and reports an absent store"
+
   # validate catches a projection that disagrees with the claim file.
   b="$a"
   jq '.claim.state = "held"' "$store/$b/receipt.json" >"$scratch/r.json"
