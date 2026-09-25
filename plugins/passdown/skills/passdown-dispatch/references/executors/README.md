@@ -11,9 +11,9 @@ Shipped here, each measured through the attempt lifecycle (records in
 
 | Card | Measured on | Stop evidence in practice |
 |---|---|---|
-| `kiro-cli.md` | kiro-cli 2.24.0 (E-KIRO-1) | owner attestation: its tool shells stayed in the launch process group, but a trusted shell could detach |
-| `claude.md` | Claude Code 2.1.193 (E-CLAUDE-1) | owner attestation: Bash tool shells run in their own process groups and survived `SIGKILL` |
-| `codex.md` | codex-cli 0.157.0 (E-CODEX-1) | owner attestation: tool shells run in their own process groups and survived `SIGKILL` |
+| `kiro-cli.md` | kiro-cli 2.24.0 (E-KIRO-1) | owner attestation: its tool shells stayed in the launch process group, but a trusted shell could detach. No claim-free read mode |
+| `claude-code.md` | Claude Code 2.1.193 (E-CLAUDE-1) | owner attestation: Bash tool shells run in their own process groups and survived `SIGKILL`. No claim-free read mode |
+| `codex.md` | codex-cli 0.157.0 (E-CODEX-1) | owner attestation: tool shells run in their own process groups and survived `SIGKILL`. Claim-free reads with `--sandbox read-only --ignore-user-config` |
 
 In every case cancel with `SIGINT` to the launch process group first; all
 three ended their whole tree on it.

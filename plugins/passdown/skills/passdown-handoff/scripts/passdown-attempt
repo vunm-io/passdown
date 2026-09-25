@@ -617,6 +617,7 @@ CARD_JQ='
           else "unknown-key: \($k)" end ),
       ( if (($c.card // "") | test("^[a-z0-9][a-z0-9-]*$")) then empty else "card: must be a lowercase executor name" end ),
       ( if $base != "" and ($c.card // "") != $base then "card: \($c.card // "") does not match the file name \($base).md" else empty end ),
+      ( if (["claude", "agents", "gemini"] | index($base | ascii_downcase)) then "card: \($base).md is an agent instruction file (\($base | ascii_upcase).md) on case-insensitive file systems; rename the executor" else empty end ),
       ( if (($c.card_version // "") | test("^[1-9][0-9]*$")) then empty else "card_version: must be a positive integer" end ),
       ( if (($c["measured.date"] // "") | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")) then empty else "measured.date: must be YYYY-MM-DD" end ),
       ( ["cli_version", "by", "evidence"][] as $k | select($c | absent("measured." + $k)) | "measured.\($k): required" ),

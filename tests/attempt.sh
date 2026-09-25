@@ -911,6 +911,10 @@ CARD
   expect_card 's/resume: null/resume: demo --resume <id>/' "only with resume_session verified"
   expect_card 's/^card: demo/card: other/' "does not match the file name"
   expect_card 's/date: 2026-09-25/date: 2026-09-2x/' "must be YYYY-MM-DD"
+  mkdir -p "$dir/clash"
+  sed 's/^card: demo/card: claude/' "$good" >"$dir/clash/claude.md"
+  run 4 "card: a name that is an agent instruction file" validate --file "$dir/clash/claude.md" --as card
+  grep -q "agent instruction file" <<<"$out" || fail "claude.md was not refused: $out"
   # A measured no-detach card may keep a zero settle window.
   sed -e 's/descendants_may_outlive: unverified/descendants_may_outlive: unsupported/' \
     -e 's/settle_seconds: 3/settle_seconds: 0/' "$good" >"$dir/bad/demo.md"
