@@ -61,7 +61,10 @@ unconfirmed; do not guess.
 3. **Read the attempt store.** For each repository that holds a plan in
    `plan:` (and the current repository), run `passdown-attempt --json list
    --unresolved`. It lists every attempt that is unresolved or still holds a
-   claim (C11), each with its recovery classes from the table below. For C2, C3 and C8 attempts, run
+   claim (C11), each with its recovery classes from the table below. If it
+   warns that there is no attempt store ("absent, not empty"), the store is
+   missing, not verified empty: say so, and treat every `open_attempts` ID
+   from the handoff as missing from the store. For C2, C3 and C8 attempts, run
    `passdown-attempt probe <id>` to see whether the worker is still alive.
    Then run `passdown-attempt --json claims --repo <repo>` for the current
    repository and for every target repository an unresolved attempt names
@@ -105,7 +108,7 @@ it is resolved. Render a rejection by its reason (**needs input**,
 | C6 verdict, no projection | `accepted`, not projected | No | Re-check the task digest, the checks and the artifact digest; then finish the projection. |
 | C7 stale | the task changed since `new` | Per observation | Resolve ownership risk first, then reject `stale`; new work is a new attempt. |
 | C8 cancel unconfirmed | cancel requested, `running`/`unknown` | **Yes** | `probe`; escalate the cancel per the card; stop only with safe evidence. |
-| C9 orphaned | another session's attempt, older than its dispatch budget (use one hour when none is recorded), not named in the latest handoff's `open_attempts` | Per observation | Surface it prominently with age and location, then classify it as C1–C8. |
+| C9 orphaned | another session's attempt whose receipt has not changed for longer than its dispatch budget (`idle_seconds` in `list`, measured from its last transition; use one hour when no budget is recorded), not named in the latest handoff's `open_attempts` | Per observation | Surface it prominently with age and location, then classify it as C1–C8. |
 | C10 interrupted continuation | unresolved, with `continues` set | Per observation | Show the chain; resolve its newest link as C1–C8. Nothing is re-asked. |
 | C11 claim without a live holder | a claim held by a stopped attempt rejected with a claim-holding reason, or by an attempt whose store is unreadable | No, or **unknown** if the store is unreadable | Continue, salvage or `release-claim`; an unreadable store is released only after the owner confirms no writer. |
 

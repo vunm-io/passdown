@@ -267,6 +267,14 @@ require_text_block "$handoff" "never tick a task that has an unresolved attempt"
   "handoff never ticks a task with an unresolved attempt"
 require_text_block "$handoff" "Handoff never resolves an attempt" \
   "handoff never resolves an attempt"
+require_text_block "$handoff" "stays +listed, marked +\`# receipt missing\`" \
+  "handoff carries forward an open attempt whose receipt is missing"
+require_text_block "$handoff" "An absent store is never +evidence that nothing is open" \
+  "handoff never reads an absent store as empty"
+require_text_block "$pickup" "measured from its last transition" \
+  "pickup measures C9 inactivity from the last receipt transition"
+require_text_block "$pickup" "absent, not empty" \
+  "pickup distinguishes an absent store from an empty one"
 
 schema="$repo_root/schemas/passdown/schema.yaml"
 apply_instruction="$(sed -n '/^apply:/,$p' "$schema")"

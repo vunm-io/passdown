@@ -1980,7 +1980,13 @@ cmd_list() {
     esac
   done
   resolve_store
-  [ -d "$STORE" ] || { [ "$JSON_OUT" = 1 ] && echo '[]'; return 0; }
+  if [ ! -d "$STORE" ]; then
+    # An absent store is not a verified empty one: a handoff must not drop
+    # attempts it knew about because their store is gone.
+    warn "no attempt store at $STORE (absent, not empty)"
+    [ "$JSON_OUT" = 1 ] && echo '[]'
+    return 0
+  fi
   for f in "$STORE"/pd-*/receipt.json; do
     [ -f "$f" ] || continue
     id="$(jq -r .id "$f")"
@@ -1999,11 +2005,12 @@ cmd_list() {
           claim: (.claim.state // \"claim-free\"), classes: \$classes,
           parent_exited: (.handle.parent_exited_at != null), location: .place.location, host: .host,
           age_seconds: ((\$now | fromdateiso8601) - (.created_at | fromdateiso8601)),
+          idle_seconds: ((\$now | fromdateiso8601) - (.transitions | map(.at | fromdateiso8601) | max)),
           rev
         }" "$f"
   done | if [ "$unresolved" = 1 ]; then jq -c 'select(.classes != [])'; else cat; fi |
     if [ "$JSON_OUT" = 1 ]; then jq -s -c .; else
-      jq -r '"\(.id)\t\(.task)\t\(.kind)\t\(.observation)\t\(.verdict)\tresult:\(.result)\t\(if .projected then "projected" else "-" end)\t\(if .ownership_risk then "OWNERSHIP-RISK" else "-" end)\tclaim:\(.claim)\t\(.classes | join(",") | if . == "" then "resolved" else . end)\tage \(.age_seconds)s"'
+      jq -r '"\(.id)\t\(.task)\t\(.kind)\t\(.observation)\t\(.verdict)\tresult:\(.result)\t\(if .projected then "projected" else "-" end)\t\(if .ownership_risk then "OWNERSHIP-RISK" else "-" end)\tclaim:\(.claim)\t\(.classes | join(",") | if . == "" then "resolved" else . end)\tage \(.age_seconds)s\tidle \(.idle_seconds)s"'
     fi
 }
 

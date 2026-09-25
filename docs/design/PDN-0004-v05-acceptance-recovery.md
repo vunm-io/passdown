@@ -2047,6 +2047,21 @@ ships it.
 - The example workspace keeps its v0.4 log and adds a later handoff with
   one open attempt. Because the example ships no store, pickup there shows
   the missing-store case.
+- Review round 1 on [#20](https://github.com/vunm-io/passdown/pull/20):
+  - **C9 measures inactivity.** §13.2 says "no update for longer than the
+    budget". `list` now reports `idle_seconds`, measured from the receipt's
+    last transition, next to `age_seconds`. Pickup and the reference host
+    use it. F16b creates an old attempt, updates it recently, and requires
+    it not to be orphaned until it has been idle past the budget.
+  - **An absent store is not an empty one.** `list` warns "absent, not
+    empty" when the store directory does not exist, and still prints `[]`.
+    Handoff builds `open_attempts` from the store's unresolved attempts
+    plus every previous `open_attempts` ID whose receipt does not show it
+    resolved. A receipt-less ID is kept and marked `# receipt missing`
+    until the owner confirms no worker remains. The reference host gains
+    `handoff`, the reference for this rule. Scenario HANDOFF runs it with
+    a store and, after a pickup, with no store at all, and requires the
+    store not to be created.
 
 **S6 — Executor reference cards + E-KIRO-1.**
 - Files: `passdown-dispatch/references/executors/{claude,codex,kiro-cli}.md`,
