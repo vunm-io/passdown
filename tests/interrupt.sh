@@ -470,7 +470,8 @@ F16() {
   sleep 1.1
   "$harness/ref-host" pickup --session current-session --budget 0 >"$scratch/F16/pickup.out" 2>"$scratch/F16/pickup.err" || fail "pickup failed: $(cat "$scratch/F16/pickup.err")"
   grep -q "^class $a C9,C2 ownership-risk" "$scratch/F16/pickup.out" || fail "not surfaced as C9: $(cat "$scratch/F16/pickup.out")"
-  echo "$a" >"$scratch/F16/handoff"
+  printf -- '---\nstatus: IN_PROGRESS\nbranch: main\nagent: claude\nplan: docs/plan.md\nopen_attempts:\n  - %s   # C2\n---\n\n## Summary\n' "$a" \
+    >"$scratch/F16/handoff"
   "$harness/ref-host" pickup --session current-session --budget 0 --handoff "$scratch/F16/handoff" >"$scratch/F16/pickup2.out"
   grep -q "^class $a C2 ownership-risk" "$scratch/F16/pickup2.out" || fail "handoff-named attempt still C9"
   oracle
@@ -751,6 +752,52 @@ F14c() {
   pass "C6 refuses changed artifacts even when verification still passes"
 }
 
+# ------------------------------------------------------------ pickup (S5)
+
+# classes_in <file> <awk range start> <awk range end>: sorted C<n> names used
+# between two lines (inclusive) of a file.
+classes_in() {
+  awk -v a="$2" -v b="$3" 'index($0, a) { on = 1 } on { print } on && index($0, b) { exit }' "$1" |
+    grep -oE '"C[0-9]+"|\| C[0-9]+ ' | tr -d '"| ' | sort -u | tr '\n' ' '
+}
+
+PICKUP() {
+  local a pickup_skill dispatch_skill helper_classes skill_classes reconcile_classes before after word
+  setup PICKUP
+  pickup_skill="$repo_root/plugins/passdown/skills/passdown-pickup/SKILL.md"
+  dispatch_skill="$repo_root/plugins/passdown/skills/passdown-dispatch/SKILL.md"
+  # 1. One set of class names: the helper's (plus C9, which pickup adds), the
+  # pickup skill's table and the dispatch skill's Reconcile table.
+  helper_classes="$(printf '%s %s' "$(classes_in "$REF_HELPER" "CLASS_JQ='" "]'")" \
+    "$(classes_in "$harness/ref-host" "  pickup)" "unresolved_tasks=")" | tr ' ' '\n' | grep . | sort -u | tr '\n' ' ')"
+  skill_classes="$(classes_in "$pickup_skill" "## Recovery classes" "## Completion authority")"
+  reconcile_classes="$(classes_in "$dispatch_skill" "## Reconcile" "## Rules")"
+  [ "$helper_classes" = "C1 C10 C11 C2 C3 C4 C5 C6 C7 C8 C9 " ] || fail "helper and ref-host classes: $helper_classes"
+  [ "$skill_classes" = "$helper_classes" ] || fail "pickup skill classes [$skill_classes] differ from [$helper_classes]"
+  [ "$reconcile_classes" = "$helper_classes" ] || fail "dispatch Reconcile classes [$reconcile_classes] differ from [$helper_classes]"
+  # 2. Every verdict the reference pickup prints is a term the skill defines.
+  for word in accepted unaccepted unconfirmed inconsistent; do
+    grep -qi "\*$word\|\*\*$word\|$word\*" "$pickup_skill" || fail "pickup skill does not define '$word'"
+  done
+  # 3. Pickup is read-only: with a live writer (C3, which also holds the
+  # repository's claim) and a handoff naming an attempt missing from the
+  # store, it changes no file.
+  REF_CRASH_AT=after-first-write host dispatch --mode write-then-sleep --task 1.1
+  a="$(attempt_of)"
+  printf -- '---\nstatus: IN_PROGRESS\nbranch: main\nagent: claude\nplan: docs/plan.md\nopen_attempts:\n  - %s\n  - pd-20260101T000000Z-00000000\n---\n' "$a" \
+    >"$scratch/PICKUP/handoff.md"
+  before="$(cd "$repo" && find docs src .git/passdown -type f | sort | xargs shasum)"
+  "$harness/ref-host" pickup --handoff "$scratch/PICKUP/handoff.md" >"$scratch/PICKUP/pickup.out" 2>&1 || fail "pickup failed"
+  after="$(cd "$repo" && find docs src .git/passdown -type f | sort | xargs shasum)"
+  [ "$before" = "$after" ] || fail "pickup changed files: $(diff <(echo "$before") <(echo "$after"))"
+  grep -q "^class $a C3 ownership-risk" "$scratch/PICKUP/pickup.out" || fail "live writer not C3: $(cat "$scratch/PICKUP/pickup.out")"
+  grep -q '^inconsistent pd-20260101T000000Z-00000000 is named in the handoff' "$scratch/PICKUP/pickup.out" ||
+    fail "a handoff attempt missing from the store was not reported"
+  reap "$a"
+  oracle
+  pass "pickup uses the skills' class names, reports a missing handoff attempt, and writes nothing"
+}
+
 # ------------------------------------------------------ skill correspondence
 
 # skill_steps: "<number> <name> required|optional" for each numbered step of
@@ -846,7 +893,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
+all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS PICKUP mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do

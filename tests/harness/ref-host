@@ -12,7 +12,8 @@
 #   ref-host continue  --prev <id> --mode <m> --answer <text>
 #   ref-host salvage   --prev <id>
 #   ref-host finish    --id <id>          # resume the lifecycle after a crash (C3/C4/C5/C6)
-#   ref-host pickup    [--session <s>] [--handoff <file>] [--budget <seconds>]
+#   ref-host pickup    [--session <s>] [--handoff <log>] [--budget <seconds>]
+#                      (<log>: a handoff log; its frontmatter open_attempts are known)
 #
 # Environment:
 #   REF_REPO          target repository = planner repository (default: cwd)
@@ -245,6 +246,15 @@ lifecycle() { # <id> <mode> <location>
   decide "$1"
 }
 
+open_attempts_of() { # <handoff log or empty> -> JSON array of the frontmatter's open_attempts
+  [ -n "$1" ] || { echo '[]'; return; }
+  awk 'NR == 1 && $0 == "---" { fm = 1; next }
+    fm && $0 == "---" { exit }
+    fm && /^open_attempts:/ { oa = 1; next }
+    fm && oa && /^  - / { sub(/^  - /, ""); sub(/[ \t]*#.*/, ""); print; next }
+    fm && oa && !/^  / { oa = 0 }' "$1" | jq -R -s -c 'split("\n") | map(select(. != ""))'
+}
+
 new_attempt() { # args for `new` -> sets $id; a refusal (exit 6) is reported, never worked around
   local code=0
   id="$(H new --host ref-host --session "$session" --planner-repo "$repo" "$@" 2>"$store/../ref-new.err.$$")" || code=$?
@@ -387,11 +397,15 @@ case "$cmd" in
     # Read-only briefing (section 13): classes from the helper, C9 from the
     # session/handoff rule, and the plan cross-check.
     H --json list --unresolved | jq -r --arg s "$pickup_session" --argjson budget "$budget" \
-      --argjson open "$( [ -n "$handoff" ] && jq -R -s -c 'split("\n") | map(select(. != ""))' "$handoff" || echo '[]')" '
+      --argjson open "$(open_attempts_of "$handoff")" '
       .[] | .classes as $c
       | .id as $id
       | (if .host.session != $s and .age_seconds > $budget and ($open | index($id) | not) then ["C9"] else [] end) as $orphan
       | "class \(.id) \(($orphan + $c) | join(","))\(if .ownership_risk then " ownership-risk" else "" end)"'
+    # Every attempt the handoff named must still be in the store.
+    open_attempts_of "$handoff" | jq -r '.[]' | while IFS= read -r o; do
+      [ -f "$store/$o/receipt.json" ] || echo "inconsistent $o is named in the handoff but missing from the store"
+    done
     unresolved_tasks="$(H --json list --unresolved | jq -r '.[] | select(.classes | any(. != "C11")) | .task | sub(".*#"; "")' | sort -u)"
     { grep -E '^- \[[xX]\] ' "$repo/$plan_rel" || true; } | awk '{print $3}' | while IFS= read -r t; do
       # The latest Dispatched line decides (the dispatch skill's accepted-verdict rule).
