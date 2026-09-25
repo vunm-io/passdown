@@ -110,8 +110,9 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   - `passdown-attempt validate --file <card> --as card` checks a card's
     format, the evidence behind every measured value, and what a launch
     needs. `tests/skills.sh` runs it on every shipped card.
-  - Measured cards for `kiro-cli` 2.24.0, Claude Code 2.1.193 and
-    codex-cli 0.157.0. Each is based on runs through the real attempt
+  - Measured cards for `kiro-cli` 2.24.0, Claude Code 2.1.193 (executor
+    and card name `claude-code`: a `claude.md` file is `CLAUDE.md` on
+    case-insensitive file systems) and codex-cli 0.157.0. Each is based on runs through the real attempt
     lifecycle, recorded in `docs/evidence/e-kiro-1/`, `e-claude-1/` and
     `e-codex-1/` with a shared fixture and runner. All three support
     headless structured output, session resume and a read-only mode, and
@@ -120,7 +121,10 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
     shells in separate process groups that survive `SIGKILL` and keep
     writing, so an empty process group is never a safe stop for them;
     every attempt on the three executors ends with owner attestation
-    unless it ran in a containment scope.
+    unless it ran in a containment scope. Only Codex has a measured
+    read-only mode that does not depend on inherited configuration
+    (`--sandbox read-only --ignore-user-config`), so only Codex reads can
+    skip the writer claim.
   - The measurements found that a worker follows a hand-written
     description of the result schema exactly, mistakes included. The
     dispatch skill now puts the schema itself into the prompt.
