@@ -53,8 +53,12 @@ answered "requires a newer version of Codex". The card is for 0.157.0.
   read-only --ignore-user-config`: without the second flag the user's MCP
   servers and plugins load, outside the sandbox (R showed no such activity
   with it). `--sandbox workspace-write` allows writes in the workspace and
-  refused a write in the home directory (W). Writes to `/tmp` or `$TMPDIR`
-  were not measured.
+  refused a shell write in the home directory (W). W ran without
+  `--ignore-user-config`, so inherited MCP servers and plugins, which act
+  outside the sandbox, were loaded; `apply_patch` outside the workspace and
+  writes to `/tmp` or `$TMPDIR` were not measured. The card therefore keeps
+  `sandbox_confined_writes: unverified`, which means a `snapshot+sandbox`
+  read is not claim-free.
 - **Resume.** `codex exec resume <thread_id>` continues the thread (D). The
   `resume` subcommand has no `--sandbox` option; pass
   `-c sandbox_mode=<mode>`.

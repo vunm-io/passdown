@@ -2128,6 +2128,12 @@ ships it.
     read-only --ignore-user-config`. Two runs (R, R2) measured it refusing a
     shell write and an `apply_patch`, with no plugin or MCP activity, so its
     card keeps `verified` and names that invocation.
+  - **The same goes for `snapshot+sandbox` reads** (review round 2). Codex's
+    workspace-write run W refused a shell write outside the workspace, but
+    it ran with the user's MCP servers and plugins loaded, and those act
+    outside the sandbox. So `sandbox_confined_writes` is `unverified` for
+    Codex as well, and the only claim-free read path shipped in v0.5 is
+    Codex's measured read-only invocation.
   - **The measurement runner no longer attests by itself.**
     `docs/evidence/executor-run.sh` stops at `unknown` and records
     `owner-attested` only after `--finish <part> --attested-by <who>`. The

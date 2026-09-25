@@ -18,7 +18,7 @@ capabilities:
   descendants_may_outlive: verified
   cancel_signal_honored: verified
   read_only_mode: verified
-  sandbox_confined_writes: verified
+  sandbox_confined_writes: unverified
 invocation:
   headless: 'codex exec --json --skip-git-repo-check --sandbox <read-only|workspace-write> [--ignore-user-config] "<prompt>" </dev/null'
   output_capture: stdout, JSON Lines events
@@ -57,8 +57,12 @@ needs `--ignore-user-config` as well: without it the user's MCP servers and
 plugins load, and they are outside the sandbox and were not measured. With
 it, no plugin or MCP activity appeared.
 
-`workspace-write` refused a write in the home directory. Writes to `/tmp`
-and `$TMPDIR` were not measured, so treat them as possibly allowed.
+`workspace-write` refused a shell write in the home directory (W). That run
+still loaded the user's MCP servers and plugins, which act outside the
+sandbox; `apply_patch` outside the workspace and writes to `/tmp` or
+`$TMPDIR` were not measured. So `sandbox_confined_writes` stays
+`unverified`: a `snapshot+sandbox` read on Codex is not claim-free. Use the
+read-only mode above for claim-free reads.
 
 **Result.** Events are `thread.started` (`thread_id`), `item.completed`
 (`command_execution`, `file_change`, `agent_message`), then
