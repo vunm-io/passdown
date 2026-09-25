@@ -1720,8 +1720,8 @@ through `tests/harness/ref-host` and `tests/harness/fake-executor`:
   worker tampering.
 
 **Release gate:** all of Layer A green in CI (F19, F21, F23 and F25 run in a
-concurrency stress job); Layer B run for F1, F2, F11, F18 and F27 with zero
-false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
+concurrency stress job); Layer B run for F1, F2, F11, F14, F18 and F27 with
+zero false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
 post-release measurement, not a gate.
 
 *Narrowed 2026-09-25 (S7 scoping).* The gate first listed F1, F2, F4, F8,
@@ -1733,11 +1733,19 @@ follow the prose? One scenario per invariant answers it:
 - F2: pickup does not trust a forged `accepted` line after a crash (§13.2);
 - F11: an interrupted launch window is never taken as "not launched"
   (§8.1);
+- F14: a crash between verdict and projection is repaired only after the
+  re-checks of §13.3. The real-host run covers both the changed-task case
+  (the verdict stays historical) and the changed-artifact case (the digest
+  no longer matches). `projected` checks the persisted verdict, the
+  checkbox and the attempt line, but it recomputes neither digest and runs
+  no check. So these re-checks are host prose that only a real host can
+  prove it follows;
 - F18: a surviving descendant blocks a stop and a second writer (§8.3, I-12);
 - F27: routing respects an owner-mandated executor (§17).
 
-The other Layer B scenarios (F4, F8, F10, F12–F15) move to post-release
-evidence under `docs/evidence/v0.5.x/`.
+The other Layer B scenarios (F4, F8, F10, F12, F13, F15) move to
+post-release evidence under `docs/evidence/v0.5.x/`. F14 was added back in
+review ([#22](https://github.com/vunm-io/passdown/pull/22)).
 
 ## 21. Migration from current v0.4.x files
 
@@ -2179,7 +2187,7 @@ ships it.
 - **Who attests in Layer B.** The owner, by hand, during each real-host run.
   The harness may pause and show the process listings, but it never records
   `owner-attested` itself (the rule #21 applied to the measurement runner).
-  The narrowed gate keeps this to five scenarios.
+  The narrowed gate keeps this to six scenarios.
 - Independent merge: this is the release PR (`release/v0.5.0` → `main`).
 - Rollback: do not merge; `main` stays at v0.4.x.
 
