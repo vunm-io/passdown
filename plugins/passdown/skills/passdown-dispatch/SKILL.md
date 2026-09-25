@@ -74,13 +74,34 @@ executor lives in its card, not in this skill:
 `references/executors/<name>.md` next to this file, overridden by a card of
 the same name under `executor_refs`. A card's capabilities are `verified`,
 `unsupported` or `unverified`; use only `verified` ones for protocol
-decisions. **Delegation needs a card**: the launch action, output capture
-and result rule come from it, so an executor without one is not eligible
-and its tasks stay in `main` until someone writes a card (one whose
-capabilities are all `unverified` is enough to be eligible). A native
-subagent uses the current host's card. A card whose `cli_version` differs
-from the installed CLI is stale: use it, record the real version, and say so
-in your report. See `references/executors/README.md`.
+decisions. A card whose `cli_version` differs from the installed CLI is
+stale: use it, record the real version, and say so in your report. See
+`references/executors/README.md`.
+
+**Eligibility.** Delegation needs a card, because the launch action, output
+capture and result rule come from it. An executor is eligible for a new
+delegated attempt only when its card states `invocation.headless`,
+`invocation.output_capture` and `invocation.result_extraction`, and sets
+`stop.settle_seconds` above zero unless it measured
+`descendants_may_outlive: unsupported`. A card whose capabilities are all
+`unverified` can be eligible; having a card never means a capability was
+measured, and it never overrides an executor-note veto. A native subagent
+uses the current host's card. The helper only warns when `new` names a
+card it cannot find, so this check is yours to make before step 3.
+
+**When the chosen executor is not eligible** (no usable card, or an
+executor-note veto), what happens depends on who chose it:
+
+- **Owner policy requires that executor** for this kind of work: do not
+  launch it and do not do the task yourself. Leave the task pending with its
+  tag unchanged, and report the unmet prerequisite and the remedies (write
+  or fix the card, fix the environment, or have the owner authorize another
+  executor for this task). Continue with the other eligible tasks. Record no
+  attempt and no `Dispatched:` line: no worker ever ran.
+- **Owner policy names a fallback**, or the owner authorizes one for this
+  task: use it and say so in your report.
+- **No owner policy chose it**: route the task down the ladder to an
+  eligible tier. The current session is always eligible.
 
 Also read inherited `executor notes` lines in the effective configuration. They
 record environment constraints and past failures (sandbox write scope,
@@ -121,14 +142,17 @@ current session  →  authorized native delegation  →  external executor (name
   session. `[dispatch: external-ok]` permits delegation; it does not require
   it, and the ladder still decides.
 - Owner policy, such as a workspace routing table by kind of work, may select
-  the external tier directly; its reason code is `owner-policy`.
+  the external tier directly; its reason code is `owner-policy`. A mandatory
+  owner route takes precedence over "uncertainty routes to the current
+  session": the host never relabels such a task `main` without the owner's
+  authorization (see *When the chosen executor is not eligible*).
 - Availability alone never authorizes delegation. A configured `subagent` is
   not implicit authorization: if the user has not explicitly requested
   delegation, keep the task in `main` or ask first.
 - `measured-specialization` must point at something measured: a card note or
   a recorded experiment. No scores, no guesses.
-- An executor note that vetoes the task rules that executor out, and so does
-  a missing card.
+- An executor note that vetoes the task, or a missing or unusable card,
+  makes that executor ineligible (see *Eligibility*).
 - Depth is one. A worker you launch never dispatches to another external
   agent CLI through passdown; the helper refuses `new --tier external` inside
   a worker (`PASSDOWN_ATTEMPT` is set). A provider's own native subagents are
@@ -222,8 +246,9 @@ test checks that the two stay in step. Steps marked *(when …)* are skipped
 otherwise.
 
 1. `route` — **Route.** Pick the tier with the ladder and record the reason
-   code and reason. Uncertainty routes to the current session, not to a
-   speculative dispatch.
+   code and reason, then check the executor's eligibility. Uncertainty
+   routes to the current session, not to a speculative dispatch, except
+   where a mandatory owner route applies.
 2. `isolate` — **Choose isolation and check eligibility.** For the simple
    class check that the inputs are committed (`git status --porcelain --
    <task paths and inputs>` is empty), that `worktree_dir` is set, and that

@@ -68,8 +68,11 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
     location another attempt's claim holds.
   - Executor mechanics move out of the skill into executor cards
     (`references/executors/`); the inline invocation table is gone. An
-    executor without a card is not eligible for delegation, and delegated
-    dispatch is refused without `jq`.
+    executor without a usable card is not eligible for delegation, and
+    delegated dispatch is refused without `jq`. Ineligible is not "the host
+    does it": a task whose owner-mandated executor is ineligible stays
+    pending and is reported, unless the owner's policy names a fallback
+    (#19).
   - A delegated line counts as accepted only if it binds to an accepted
     receipt for the exact task, is a host (`main`) line, or is a legacy line
     for a task with no receipts at all. One plan task per attempt.

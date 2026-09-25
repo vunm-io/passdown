@@ -149,6 +149,12 @@ require_text_block "$dispatch" "only while the store holds +\\*\\*no +receipt at
   "a legacy accepted line counts only when the task has no receipts"
 require_text_block "$dispatch" "Delegation needs a card" \
   "dispatch does not delegate to an executor without a card"
+reject_text "$dispatch" "tasks stay in \`main\` until" \
+  "dispatch no longer moves an ineligible executor's tasks to main"
+require_text_block "$dispatch" "do not +launch it and do not do the task yourself" \
+  "an owner-mandated task whose executor is ineligible is neither launched nor done by the host"
+require_text_block "$dispatch" "A mandatory +owner route takes precedence" \
+  "a mandatory owner route outranks routing uncertain work to the current session"
 require_text_block "$dispatch" "always lists +\`owner-attested\`" \
   "dispatch branches on safe machine evidence, not on probe's owner-attested entry"
 require_text_block "$dispatch" "Never attest on the user's behalf" \

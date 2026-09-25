@@ -49,19 +49,33 @@ Rules:
 
 ## Without a card
 
-An executor without a card is **not eligible** for delegated execution: the
-launch action, output capture and result rule have nowhere to come from, so
-its tasks stay in `main`. To make it eligible, write a card. A first card may
-mark every capability `unverified`; it still has to state `invocation.headless`,
-`invocation.output_capture` and `invocation.result_extraction`. With every
-capability `unverified`, the card sets `stop.settle_seconds` above zero,
-because a parent exit cannot rule out a surviving writer, and the host:
+An executor without a card is **not eligible** for a new delegated attempt:
+the launch action, output capture and result rule have nowhere to come from.
+Ineligible does not mean "the host does it instead". When owner policy
+requires that executor, the task stays pending and the host reports the
+missing card; it moves to another executor, the current session included,
+only if the owner's policy or the owner allows it. See *Eligibility* in the
+dispatch skill.
 
-- ends every attempt with `owner-attested`, unless it launched the worker in
-  a containment scope;
+To make an executor eligible, write a card. A first card may mark every
+capability `unverified`; it still has to state `invocation.headless`,
+`invocation.output_capture` and `invocation.result_extraction`, and set
+`stop.settle_seconds` above zero, because a parent exit cannot rule out a
+surviving writer. Having a card does not make any capability measured and
+does not lift an executor-note veto. With every capability `unverified`,
+the host:
+
+- ends every attempt with `owner-attested` — a person confirming no process
+  for the attempt remains, not a click to approve the work — unless it
+  launched the worker in a containment scope and the probe shows it empty;
 - starts continuations fresh from files (no session resume).
 
-A missing capability key in a card counts as `unverified`.
+A missing capability key in a card counts as `unverified`. The helper itself
+only warns when a named card is missing and then reads every capability as
+`unverified` with default values; that keeps old receipts readable, but it is
+not an eligibility check. A card in `executor_refs` replaces the bundled card
+of the same name as a whole file (fields are not merged), so a local
+override must be complete.
 
 Unmeasured invocation hints for executors that have no card yet. They are a
 starting point for writing and measuring a card (see

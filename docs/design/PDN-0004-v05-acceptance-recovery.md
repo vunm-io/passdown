@@ -1691,6 +1691,7 @@ Layer A failure.
 | F24 | Supposed read-only worker writes | fake executor `read-but-writes` while another attempt holds `repo`: (a) no enforced guard; (b) card-declared guard with the harness simulating confinement | (a) `new --kind read` must acquire the claim → exit 6, never launched; (b) launched claim-free, the write lands in the snapshot only, target digest unchanged; with the confinement simulation disabled, the target-digest check reports the incident |
 | F25 | Receipt compare-and-write race | Two helpers apply `cancel` and `observe` (and, separately, `result` and `observe`) concurrently to one receipt, both planned from the same `rev` | Exactly one succeeds, the other exits 5; the final receipt has consecutive `rev` values and a transition log with no lost write |
 | F26 | Profile with a global key | Profile declares `port:5432` | Helper rejects the profile; no claim is written |
+| F27 | Owner-mandated executor is ineligible (Layer B only) | Owner policy routes a task to executor `X`; (a) `X` has no card; (b) same, and the policy names a fallback; (c) `X` has an all-`unverified` card with the required `invocation.*` and `settle_seconds > 0` | (a) `X` is not launched, no attempt is created, the task is **not** done in the current session and stays pending with the missing card reported; (b) the fallback runs and the report names it; (c) `X` is eligible and runs the normal lifecycle, ending with owner attestation |
 
 **Implementation notes (S3).** `tests/interrupt.sh` runs the matrix
 through `tests/harness/ref-host` and `tests/harness/fake-executor`:
@@ -1719,8 +1720,8 @@ through `tests/harness/ref-host` and `tests/harness/fake-executor`:
   worker tampering.
 
 **Release gate:** all of Layer A green in CI (F19, F21, F23 and F25 run in a
-concurrency stress job); Layer B run for at least F1, F2, F4, F8, F10–F15 and
-F18 with zero false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
+concurrency stress job); Layer B run for at least F1, F2, F4, F8, F10–F15, F18 and
+F27 with zero false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
 post-release measurement, not a gate.
 
 ## 21. Migration from current v0.4.x files
@@ -1962,10 +1963,9 @@ ships it.
   host `abandon`s it before falling back, which keeps §11 step 2's rule that
   nothing launches from a failed preflight.
 - Cards arrive in S6. Until then the skill ships
-  `references/executors/README.md`: the card format, what a host does without
-  a card (all capabilities `unverified`, the result is the last JSON-object
-  line of `transport.log`, stops are owner-attested), and the former inline
-  invocation table, relabeled as unmeasured hints.
+  `references/executors/README.md`: the card format, the eligibility rule
+  (below, as revised in review round 1 and #19), and the former inline
+  invocation table, relabeled as unmeasured notes for writing a card.
 - Review round 1 on [#18](https://github.com/vunm-io/passdown/pull/18)
   tightened the prose against the helper and this design:
   - **Accepted-line rule.** The latest `Dispatched:` line decides. It counts
@@ -1982,10 +1982,23 @@ ships it.
     failing abandons the still-`prepared` attempt. This refines §16, where
     both ran before `new`.
   - **A card is required to delegate.** Invocation, capture and the result
-    rule come from the card, so an executor without one stays in `main`. An
-    all-`unverified` card is enough (§18 "missing card" now means *ineligible*,
-    not *all-unverified*). A card with `descendants_may_outlive` unverified
-    sets `settle_seconds > 0`; the S6 card lint enforces it.
+    rule come from the card. An executor is eligible for a new attempt only
+    with a card stating `invocation.headless`, `output_capture` and
+    `result_extraction`, and `settle_seconds > 0` unless it measured
+    `descendants_may_outlive: unsupported` (the S6 card lint enforces the
+    latter). An all-`unverified` card can be eligible. For the helper, a
+    missing card still reads as all-`unverified` with defaults, which keeps
+    old receipts readable. It is not a launch permission: `new` only warns,
+    so eligibility is a host check today.
+  - **Ineligible is not "do it in main"** ([#19](https://github.com/vunm-io/passdown/issues/19)).
+    When owner policy requires an ineligible executor, the task stays
+    pending and the host reports the missing prerequisite. It moves to
+    another executor, the current session included, only with the owner's
+    policy or authorization. A mandatory owner route outranks "uncertainty
+    routes to the current session" (§17). No attempt or `Dispatched:` line is
+    recorded, because no worker ran. This is a §17 rule, not I-14, which
+    covers environment denial after launch. Layer A cannot exercise a
+    routing decision, so F27 is a Layer B scenario.
   - **One plan task per attempt**, as the receipt's single `task.ref` already
     implies. The C5 row reaches a re-emit only through inspect and an
     `invalid_result` rejection, and C11 is limited to holders already
@@ -2020,7 +2033,9 @@ ships it.
 - Acceptance: Kiro card from measured E-KIRO-1 runs A–E; Claude and Codex
   cards list only what was measured, the rest `unverified`.
 - Independent merge: yes; format frozen at S1 review.
-- Rollback: revert cards; dispatch treats a missing card as all-`unverified`.
+- Rollback: revert cards. Executors left without a card become ineligible for
+  new delegated attempts (S4 eligibility rule); the helper still reads a
+  missing card as all-`unverified`, so existing receipts stay readable.
 
 **S7 — Real-host evidence, docs, migration, release.**
 - Files: `docs/evidence/v0.5.0/`, README, `docs/INTEGRATIONS.md`,
