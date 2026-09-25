@@ -26,7 +26,7 @@ jobs:
       - name: Validate shell scripts
         run: |
           bash -n install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt tests/harness/*
-          shellcheck install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt tests/harness/*
+          shellcheck install.sh scripts/*.sh tests/*.sh scripts/passdown-attempt tests/harness/fake-executor tests/harness/ref-host tests/harness/layer-b/*.sh tests/harness/layer-b/scenarios/*.sh docs/evidence/*.sh
 
       - name: Check bundled helper and schema copies
         run: ./scripts/sync-bundled.sh --check
