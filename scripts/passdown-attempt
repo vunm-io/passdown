@@ -1792,11 +1792,13 @@ verdict_accept() {
   if [ "$(jq -r '(.artifact.out_of_scope | length) > 0 or .artifact.plan_touched' <<<"$r")" = true ] && [ -z "$override" ]; then
     die $E_STATE "accept: out-of-scope paths $(jq -c .artifact.out_of_scope <<<"$r") / plan touched $(jq -r .artifact.plan_touched <<<"$r"); reject scope_violation/plan_tampered, or restore, re-inspect and pass --scope-override"
   fi
-  # 6. at least one passing host check
+  # 6. at least one host check, and every one of them passed
   [ "$#" -gt 0 ] || die $E_STATE "accept: at least one --check is required (I-10)"
-  local passing=0 c
-  for c in "$@"; do [ "$(jq -r .exit <<<"$c")" != 0 ] || passing=1; done
-  [ "$passing" = 1 ] || die $E_STATE "accept: no --check passed"
+  local c
+  for c in "$@"; do
+    [ "$(jq -r .exit <<<"$c")" = 0 ] ||
+      die $E_STATE "accept: check $(jq -r .name <<<"$c") exited $(jq -r .exit <<<"$c"); reject with --reason-code verification_failed"
+  done
   local stored
   stored="$(store_checks "$id" "$@")"
   # 7. the written receipt is validated against the whole contract by mutate

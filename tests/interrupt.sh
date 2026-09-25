@@ -214,6 +214,28 @@ F2() {
   pass "forged accepted + [x] then a host crash: pickup counts nothing accepted (unresolved attempt)"
 }
 
+F2c() {
+  local a
+  setup F2c
+  host dispatch --mode write-outside-scope
+  a="$(attempt_of)"
+  [ "$(outcome_of)" = rejected:scope_violation ] || fail "fixture: $(outcome_of)"
+  # A line without attempt: cannot stand in for the rejected receipt.
+  perl -0pi -e 's/^- \[ \] 1.1 ([^\n]*\n(?:  [^\n]*\n)*)/- [x] 1.1 $1  - Dispatched: fake (2026-09-21) — accepted; verified: true\n/m' \
+    "$repo/docs/plan.md"
+  host pickup
+  grep -q '^inconsistent 1.1 ' <<<"$out" || fail "a legacy line masked a resolved rejection: $out"
+  # The host finishing the task itself is a host line, and counts.
+  printf 'hello\n' >"$repo/src/hello.txt"
+  perl -0pi -e 's/^(- \[x\] 1.1 [^\n]*\n(?:  [^\n]*\n)*)/$1  - Dispatched: main (2026-09-21) — accepted; verified: grep -q hello src\/hello.txt\n/m' \
+    "$repo/docs/plan.md"
+  host pickup
+  grep -q '^accepted 1.1 (host line)$' <<<"$out" || fail "the host line was not counted: $out"
+  ground_truth_accepted="1.1"
+  oracle
+  pass "a legacy line cannot mask a resolved receipt; a later host line counts"
+}
+
 F3() {
   setup F3
   host dispatch --mode edit-criteria
@@ -401,6 +423,26 @@ F14() {
   pass "crash between verdict and projection: C6, projected only after digest + checks re-verified"
 }
 
+F14d() {
+  local a
+  setup F14d
+  REF_CRASH_AT=after-plan-line host dispatch --mode ok
+  a="$(attempt_of)"
+  crashed || fail "no crash"
+  [ "$(class_of "$a")" = C6 ] || fail "class $(class_of "$a")"
+  grep -q "attempt: $a" "$repo/docs/plan.md" || fail "fixture: the outcome line was not written"
+  grep -q '^- \[ \] 1.1 ' "$repo/docs/plan.md" || fail "fixture: the task was ticked before the crash"
+  host finish --id "$a"
+  [ "$(outcome_of)" = accepted ] || fail "finish: $(outcome_of)"
+  grep -q '^- \[x\] 1.1 ' "$repo/docs/plan.md" || fail "recovery did not tick the task"
+  [ "$(grep -c "attempt: $a" "$repo/docs/plan.md")" = 1 ] || fail "recovery wrote a second outcome line"
+  [ "$(field "$a" '.verdict.projected_at != null')" = true ] || fail "not projected"
+  [ "$(field "$a" .claim.state)" = released ] || fail "claim still $(field "$a" .claim.state)"
+  ground_truth_accepted="1.1"
+  oracle
+  pass "crash between the outcome line and the checkbox: C6 recovery ticks the task once and projects"
+}
+
 F15() {
   local a
   setup F15
@@ -475,27 +517,25 @@ F18() {
 F18b() {
   local a
   setup F18b
-  # The descendant writes 3 s after the parent exits, well after the host's
-  # first inspection even on a slow runner.
-  FAKE_DETACHED_DELAY=3 host dispatch --mode spawn-detached-writer --card fake-measured@1
+  # The test hook runs after the host's first inspection and before its
+  # settle wait: it releases the detached descendant and waits for its late
+  # write, so the write lands inside the settle window on any runner.
+  FAKE_DETACHED_AFTER="$scratch/F18b/release" \
+    REF_AFTER_INSPECT="touch '$scratch/F18b/release'; n=0; until grep -q ' src/late.txt' '$journal' || [ \$n -ge 600 ]; do sleep 0.05; n=\$((n + 1)); done" \
+    host dispatch --mode spawn-detached-writer --card fake-overclaims@1
   a="$(attempt_of)"
   [ "$(field "$a" .execution.stop_evidence)" = exit+pgroup-empty ] || fail "the wrong card did not allow a pgroup stop"
-  case "$(outcome_of)" in pending:*) ;; *) fail "outcome $(outcome_of)" ;; esac
-  grep -q " $a .* src/late.txt" "$journal" && fail "premise: the late write landed before the first inspection"
-  # The settle inspection, at least the card's second later, sees the write.
-  local n=0
-  until grep -q " $a .* src/late.txt" "$journal" || [ "$n" -ge 200 ]; do sleep 0.05; n=$((n + 1)); done
   grep -q " $a .* src/late.txt" "$journal" || fail "fixture: the descendant never wrote"
-  sleep 1.1
-  H inspect "$a" --rev "$(rev "$a")" >/dev/null
+  [ "$(field "$a" '.artifact.inspections | length')" -ge 2 ] || fail "the host skipped the settle inspection"
   [ "$(field "$a" '.artifact.inspections[-2].digest != .artifact.inspections[-1].digest')" = true ] ||
-    fail "the settle inspections did not see the late write"
+    fail "the settle inspection did not see the late write"
+  case "$(outcome_of)" in pending:*) ;; *) fail "outcome $(outcome_of)" ;; esac
   local c=0
   H verdict "$a" accept --rev "$(rev "$a")" --check "t=0:$repo/docs/plan.md" >/dev/null 2>&1 || c=$?
   [ "$c" = 3 ] || fail "accepted although the artifact changed inside the settle window ($c)"
   [ "$(field "$a" .claim.state)" = held ] || fail "claim released"
   oracle
-  pass "a card that wrongly claims no detaching: the settle double-inspection sees the late write, accept refused"
+  pass "a card that wrongly claims no detaching: the host's settle inspection sees the late write, accept refused"
 }
 
 F19() {
@@ -711,6 +751,75 @@ F14c() {
   pass "C6 refuses changed artifacts even when verification still passes"
 }
 
+# ------------------------------------------------------ skill correspondence
+
+# skill_steps: "<number> <name> required|optional" for each numbered step of
+# the dispatch skill's "Delegated attempt lifecycle" section, in document
+# order. A step whose text starts with "*(when" is optional.
+skill_steps() {
+  awk '/^## Delegated attempt lifecycle/ { in_s = 1; next }
+    in_s && /^## / { exit }
+    in_s && /^[0-9]+\. `[a-z-]+`/ {
+      n = $1; sub(/\.$/, "", n); name = $2; gsub(/`/, "", name)
+      print n, name, ($4 ~ /^\*\(when/ ? "optional" : "required") }' \
+    "$repo_root/plugins/passdown/skills/passdown-dispatch/SKILL.md"
+}
+
+# in_skill_order <steps>: every emitted step is a skill step, in skill order
+# (a step may repeat, e.g. the settle inspection).
+in_skill_order() {
+  awk -v want="$want" 'BEGIN { n = split(want, w, " "); for (i = 1; i <= n; i++) pos[w[i]] = i }
+    { if (!($1 in pos)) { print "step " $1 " is not in the skill"; exit 1 }
+      if (pos[$1] < last) { print "step " $1 " after " prev; exit 1 }
+      last = pos[$1]; prev = $1 }' <<<"$1"
+}
+
+# run_steps <label> <expect-outcome>: the steps of the last host run must
+# follow the skill's order and include every required step.
+run_steps() {
+  local seq msg missing
+  seq="$(sed -n 's/^step \([a-z-]*\).*/\1/p' <<<"$out")"
+  msg="$(in_skill_order "$seq")" || fail "$1 run: $msg"
+  missing="$(for r in $required; do grep -qx "$r" <<<"$seq" || printf '%s ' "$r"; done)"
+  [ -z "$missing" ] || fail "$1 run skipped required steps: $missing"
+  emitted="$emitted $seq"
+}
+
+STEPS() {
+  local numbered want required host_names emitted=""
+  setup STEPS
+  numbered="$(skill_steps)"
+  [ -n "$numbered" ] || fail "no numbered steps in the dispatch skill's lifecycle"
+  awk '$1 != NR { exit 1 }' <<<"$numbered" || fail "skill steps are not numbered 1..N: $(tr '\n' ' ' <<<"$numbered")"
+  want="$(awk '{ print $2 }' <<<"$numbered" | tr '\n' ' ')"
+  required="$(awk '$3 == "required" { print $2 }' <<<"$numbered" | tr '\n' ' ')"
+  [ "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | wc -l | tr -d ' ')" = 17 ] ||
+    fail "the skill no longer names 17 distinct steps: $want"
+  # 1. The reference host performs exactly the skill's steps: the same names.
+  host_names="$(grep -v '^[[:space:]]*#' "$harness/ref-host" | grep -oE '(^|[[:space:];(])step [a-z][a-z-]*' |
+    awk '{ print $2 }' | sort -u | tr '\n' ' ')"
+  [ "$host_names" = "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | tr '\n' ' ')" ] ||
+    fail "skill steps [$want] and ref-host steps [$host_names] differ"
+  # 2. In the skill's order, on real runs: an attested stop, a measured card
+  # with a settle window, and a cancelled worker.
+  host dispatch --mode ok --task 1.1
+  [ "$(outcome_of)" = accepted ] || fail "attested run: $(outcome_of)"
+  run_steps attested
+  host dispatch --mode ok --task 1.2 --card fake-measured@1
+  [ "$(outcome_of)" = accepted ] || fail "measured run: $(outcome_of)"
+  [ "$(grep -c '^step inspect ' <<<"$out")" = 2 ] || fail "measured run: no settle inspection"
+  run_steps measured
+  REF_CANCEL_AFTER=0.5 host dispatch --mode hang --task 1.1
+  case "$(outcome_of)" in rejected:*) ;; *) fail "cancelled run: $(outcome_of)" ;; esac
+  run_steps cancelled
+  # 3. Together the runs exercise every step the skill names.
+  [ "$(tr ' ' '\n' <<<"$emitted" | grep . | sort -u | tr '\n' ' ')" = "$(tr ' ' '\n' <<<"$want" | grep . | sort -u | tr '\n' ' ')" ] ||
+    fail "runs left skill steps unexercised"
+  ground_truth_accepted="1.1 1.2"
+  oracle
+  pass "the reference host performs the dispatch skill's $(wc -l <<<"$numbered" | tr -d ' ') numbered steps, by name and in order"
+}
+
 # ------------------------------------------------------------ mutation check
 
 mutation() {
@@ -737,7 +846,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 mutation"
+all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do

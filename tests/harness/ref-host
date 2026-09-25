@@ -21,13 +21,19 @@
 #   REF_JOURNAL       fake-executor write journal
 #   REF_SESSION       this host's session id (default: ref-host-1)
 #   REF_CRASH_AT      after-new | after-arm | after-launch | after-first-write |
-#                     after-result | after-inspect | after-verdict | after-plan-edit | after-cancel
+#                     after-result | after-inspect | after-verdict | after-plan-line |
+#                     after-plan-edit | after-cancel
 #   REF_ATTEST        when set, the owner attests a stop the probe cannot prove
 #   REF_CANCEL_AFTER  seconds to wait before cancelling the worker
 #   REF_KILL_WORKER   when set with REF_CANCEL_AFTER, the escalation signal is KILL
+#   REF_AFTER_INSPECT test hook: a shell command run after the first inspection,
+#                     before the settle wait
 #
 # Every step prints "step <name> <attempt>" to stdout; the last line of a
 # lifecycle is "outcome <attempt> <accepted|rejected:<reason>|pending|...>".
+# The step names are the numbered steps of the "Delegated attempt lifecycle"
+# in plugins/passdown/skills/passdown-dispatch/SKILL.md, in the same order;
+# tests/interrupt.sh (scenario STEPS) checks that the two stay in step.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -69,6 +75,7 @@ tick() { TASK="$1" perl -pi -e 's/^- \[ \] \Q$ENV{TASK}\E /- [x] $ENV{TASK} /' "
 # running. Sets $wpid.
 launch() {
   local id="$1" mode="$2" loc="$3" prompt="$store/../ref-prompt.$$"
+  step prompt "$id"
   printf 'Task %s. End with one passdown.result/v1 JSON object for attempt %s.\n' "$(field "$id" .task.ref)" "$id" >"$prompt"
   H arm "$id" --rev "$(rev "$id")" --prompt "$prompt" >/dev/null
   rm -f "$prompt"
@@ -139,19 +146,31 @@ reject() { # <id> <code> <reason>
   local task
   task="$(field "$1" '.task.ref | sub(".*#"; "")')"
   H verdict "$1" reject --rev "$(rev "$1")" --reason-code "$2" --reason "$3" >/dev/null
+  step verdict "$1"
   plan_line "$task" "rejected: ${2//_/ }; verified: -; attempt: $1"
+  step plan-edit "$1"
   outcome "$1" "rejected:$2"
 }
 
 # decide <id>: the acceptance lifecycle (section 12) after a safe stop.
 decide() {
-  local id="$1" task status disp loc cmd check code=0 msg
+  local id="$1" task status disp loc cmd check code=0 msg settle
   task="$(field "$id" '.task.ref | sub(".*#"; "")')"
   if [ "$(field "$id" '.execution.reconciled_at // ""')" = "" ]; then
     H inspect "$id" --rev "$(rev "$id")" >/dev/null
     step inspect "$id"
     crash_at after-inspect "$id"
   fi
+  # Artifact stability (section 12.3): a card with a settle window needs a
+  # second, equal inspection at least that far apart.
+  settle="$(jq -r '."stop.settle_seconds" // "0"' "$store/$id/card.json" 2>/dev/null || echo 0)"
+  if [ "$settle" -gt 0 ] && [ "$(field "$id" '.artifact.inspections | length')" -lt 2 ]; then
+    [ -z "${REF_AFTER_INSPECT:-}" ] || sh -c "$REF_AFTER_INSPECT"
+    sleep "$settle"
+    H inspect "$id" --rev "$(rev "$id")" >/dev/null
+    step inspect "$id"
+  fi
+  step verify "$id"
   status="$(field "$id" .result.status)"
   disp="$(field "$id" '.result.disposition // ""')"
   if [ "$status" != valid ]; then reject "$id" invalid_result "result $status"; return; fi
@@ -179,11 +198,12 @@ decide() {
   cmd="$(verification_of "$task")"
   check="$store/$id/host-check.txt"
   (cd "$loc" && sh -c "$cmd") >"$check" 2>&1 || code=$?
-  step verify "$id"
   if [ "$code" != 0 ]; then
     H verdict "$id" reject --rev "$(rev "$id")" --reason-code verification_failed --reason "$cmd exited $code" \
       --check "$cmd=$code:$check" >/dev/null
+    step verdict "$id"
     plan_line "$task" "rejected: verification failed; verified: $cmd; attempt: $id"
+    step plan-edit "$id"
     outcome "$id" rejected:verification_failed
     return
   fi
@@ -202,8 +222,12 @@ decide() {
 project() { # <id>: plan edit, then projected (section 12.5)
   local id="$1" task
   task="$(field "$id" '.task.ref | sub(".*#"; "")')"
+  # The skill's order: the outcome line, then the checkbox. Recovery (finish)
+  # completes whichever half is missing.
+  grep -q "attempt: $id" "$repo/$plan_rel" ||
+    plan_line "$task" "accepted; verified: $(verification_of "$task"); attempt: $id"
+  crash_at after-plan-line "$id"
   tick "$task"
-  plan_line "$task" "accepted; verified: $(verification_of "$task"); attempt: $id"
   step plan-edit "$id"
   crash_at after-plan-edit "$id"
   H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
@@ -260,6 +284,8 @@ mkdir -p "$store"
 
 case "$cmd" in
   dispatch)
+    step route
+    step isolate
     args=(--task-ref "$plan_rel#$task" --kind "$kind" --executor fake --card "$card" --place-repo "$repo")
     if [ "$kind" = read ]; then
       args+=(--tier native --reason-code fresh-context --reason "review in a fresh context" --isolation read-only)
@@ -349,12 +375,7 @@ case "$cmd" in
         outcome "$id" "historical"
         exit 0
       fi
-      if grep -q "attempt: $id" "$repo/$plan_rel"; then
-        H projected "$id" --rev "$(rev "$id")" --plan "$repo/$plan_rel" >/dev/null
-        outcome "$id" accepted
-      else
-        project "$id"
-      fi
+      project "$id"
       exit 0
     fi
     if [ "$(field "$id" .result.status)" = none ] && [ -f "$store/$id/transport.log" ]; then
@@ -373,15 +394,24 @@ case "$cmd" in
       | "class \(.id) \(($orphan + $c) | join(","))\(if .ownership_risk then " ownership-risk" else "" end)"'
     unresolved_tasks="$(H --json list --unresolved | jq -r '.[] | select(.classes | any(. != "C11")) | .task | sub(".*#"; "")' | sort -u)"
     { grep -E '^- \[[xX]\] ' "$repo/$plan_rel" || true; } | awk '{print $3}' | while IFS= read -r t; do
+      # The latest Dispatched line decides (the dispatch skill's accepted-verdict rule).
       line="$(awk -v id="$t" '$0 ~ "^- \\[[xX]\\] " id " " { inb = 1; next } inb && /^- \[/ { exit }
-        inb && /Dispatched:.*accepted/ { l = $0 } END { print l }' "$repo/$plan_rel")"
+        inb && /Dispatched:/ { l = $0 } END { print l }' "$repo/$plan_rel")"
       a="$(sed -n 's/.*attempt: \(pd-[0-9TZ]*-[0-9a-f]*\).*/\1/p' <<<"$line")"
       if printf '%s\n' "$unresolved_tasks" | grep -qx "$t"; then
         echo "unaccepted $t has an unresolved attempt"
       elif [ -z "$line" ]; then
         echo "unconfirmed $t ticked without an accepted Dispatched line"
+      elif ! grep -q -- '— accepted; verified: ' <<<"$line"; then
+        echo "inconsistent $t is ticked but its latest Dispatched line is not accepted"
+      elif grep -q 'Dispatched: main (' <<<"$line"; then
+        echo "accepted $t (host line)"
       elif [ -z "$a" ]; then
-        echo "accepted $t (legacy line, no receipt)"
+        if [ "$(H --json list --task "$plan_rel#$t" | jq length)" = 0 ]; then
+          echo "accepted $t (legacy line, no receipt)"
+        else
+          echo "inconsistent $t has a legacy line but the store holds receipts for it"
+        fi
       elif [ ! -f "$store/$a/receipt.json" ] || [ "$(field "$a" .verdict.acceptance)" != accepted ] ||
         [ "$(field "$a" .task.ref)" != "$plan_rel#$t" ] || [ "$(field "$a" .task.planner_repo)" != "$repo" ]; then
         echo "inconsistent $t names $a, which is not an accepted receipt for this task"

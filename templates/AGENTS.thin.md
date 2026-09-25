@@ -23,5 +23,10 @@ Superpowers `executing-plans`. The routing gate may assign every task to
 - plan_dir: docs/plans/          # used when planning: markdown
 - log_dir: docs/log/
 - log_language: en
-- executors: agy, subagent, main
+- executors: agy, subagent, main   # available executors; order is not a cost ranking
+- attempt_dir: <dir>                     # default: <git common dir>/passdown/attempts, outside every worktree
+- worktree_dir: ../.passdown-worktrees/  # no default; without it delegated writers use the current checkout
+- executor_refs: docs/executors/         # workspace executor cards; override the bundled ones by name
+- concurrency_profiles:                  # none are built in; each needs recorded evidence
+  - docs-only: tested <date> (<evidence path>) — edits only repo files, no build, no services
 -->

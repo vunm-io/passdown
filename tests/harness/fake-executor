@@ -15,6 +15,8 @@
 #   FAKE_TARGET       target repository (read-but-writes without confinement)
 #   FAKE_HELPER       passdown-attempt (dispatch-external mode)
 #   FAKE_DELAY        seconds to wait before the first write (default 0.3)
+#   FAKE_DETACHED_DELAY  spawn-detached-writer: seconds before the late write
+#   FAKE_DETACHED_AFTER  spawn-detached-writer: write only once this file exists
 # Journals: FAKE_JOURNAL gets "<t1> <t2> <attempt> <location> <path>" per
 # write; FAKE_JOURNAL.life gets "begin <pid> <t> <attempt> <location>" and
 # "end <pid> <t>" per process.
@@ -112,7 +114,9 @@ case "$mode" in
     jwrite src/hello.txt hello
     # The child leaves the process group and keeps writing after the parent
     # exits: the case only a scope, or the owner, can rule out.
-    perl -e 'setpgrp(0, 0); exec @ARGV' sh -c "sleep ${FAKE_DETACHED_DELAY:-0.8}; FAKE_DELAY=0 '$0' detached-write" \
+    perl -e 'setpgrp(0, 0); exec @ARGV' sh -c "if [ -n \"\${FAKE_DETACHED_AFTER:-}\" ]; then
+        until [ -e \"\$FAKE_DETACHED_AFTER\" ]; do sleep 0.05; done
+      else sleep ${FAKE_DETACHED_DELAY:-0.8}; fi; FAKE_DELAY=0 '$0' detached-write" \
       </dev/null >/dev/null 2>&1 &
     result submitted
     ;;

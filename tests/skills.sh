@@ -95,6 +95,84 @@ require_text_block "$dispatch" "^.*Accepted verdict" \
 require_text_block "$dispatch" "same actor.*mark.*complete as you go|mark.*complete as you go.*same actor" \
   "dispatch keeps mark-as-you-go for main, where host and worker are the same actor"
 
+# v0.5 dispatch (PDN-0004 S4): routing ladder, attempt lifecycle through the
+# helper, Reconcile, isolation. The step-by-step correspondence with the
+# reference host is behavioral: tests/interrupt.sh STEPS.
+require_text "$dispatch" "^## Routing ladder" \
+  "dispatch defines the routing ladder"
+require_text "$dispatch" "current session +→ +authorized native delegation +→ +external executor" \
+  "dispatch routes current, then native, then external"
+reject_text "$dispatch" "cheapest" \
+  "dispatch no longer routes to the cheapest executor"
+require_text_block "$dispatch" "Availability alone never authorizes delegation" \
+  "dispatch does not delegate just because an executor is available"
+require_text "$dispatch" "^## Delegated attempt lifecycle" \
+  "dispatch defines the delegated attempt lifecycle"
+require_text "$dispatch" "scripts/passdown-attempt" \
+  "dispatch drives attempts through the bundled helper"
+require_text_block "$dispatch" "Without +\`jq\`, delegation is refused" \
+  "dispatch refuses delegation without jq"
+require_text_block "$dispatch" "Launch only after it returns +\`0\`" \
+  "dispatch arms the attempt before launching"
+require_text_block "$dispatch" "End with one JSON object matching +\`passdown.result/v1\`" \
+  "dispatch prompts carry the result clause"
+require_text_block "$dispatch" "Do not dispatch this work, or any part of it, to another +external agent CLI" \
+  "dispatch prompts carry the depth clause"
+require_text_block "$dispatch" "Silence is not +failure" \
+  "dispatch does not treat silence as failure"
+reject_text "$dispatch" "stale .running. status is a failure" \
+  "dispatch no longer turns a stale job into a failure"
+require_text_block "$dispatch" "bare parent exit .* is +never stop evidence|never stop evidence" \
+  "dispatch never accepts a bare parent exit as a stop"
+require_text_block "$dispatch" "attempt: <id>" \
+  "dispatch outcome lines name the attempt"
+require_text "$dispatch" "^## Reconcile" \
+  "dispatch defines the Reconcile section"
+for class in C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11; do
+  require_text "$dispatch" "^\\| $class " "dispatch reconciles recovery class $class"
+done
+require_text_block "$dispatch" "Nothing uncertain is retried +automatically" \
+  "dispatch never retries an uncertain attempt automatically"
+require_text "$dispatch" "^## Isolation" \
+  "dispatch defines the isolation policy"
+require_text_block "$dispatch" "\`worktree_dir\` has no default" \
+  "dispatch gives worktree_dir no default"
+require_text_block "$dispatch" "Host writes" \
+  "dispatch forbids host edits under another attempt's claim"
+reject_text "$dispatch" "agy --print" \
+  "dispatch no longer carries an inline executor invocation table"
+require_text "$dispatch" "references/executors/" \
+  "dispatch reads executor mechanics from cards"
+require_text_block "$dispatch" "Exactly one plan task per attempt" \
+  "dispatch assigns exactly one plan task per attempt"
+require_text_block "$dispatch" "only while the store holds +\\*\\*no +receipt at all\\*\\* +for that task" \
+  "a legacy accepted line counts only when the task has no receipts"
+require_text_block "$dispatch" "Delegation needs a card" \
+  "dispatch does not delegate to an executor without a card"
+reject_text "$dispatch" "tasks stay in \`main\` until" \
+  "dispatch no longer moves an ineligible executor's tasks to main"
+require_text_block "$dispatch" "do not +launch it and do not do the task yourself" \
+  "an owner-mandated task whose executor is ineligible is neither launched nor done by the host"
+require_text_block "$dispatch" "A mandatory +owner route takes precedence" \
+  "a mandatory owner route outranks routing uncertain work to the current session"
+require_text_block "$dispatch" "always lists +\`owner-attested\`" \
+  "dispatch branches on safe machine evidence, not on probe's owner-attested entry"
+require_text_block "$dispatch" "Never attest on the user's behalf" \
+  "dispatch never attests a stop for the user"
+require_text_block "$dispatch" "run the card's +\`toolchain_check\` +inside it" \
+  "dispatch runs the toolchain check in the created worktree before arm"
+require_text_block "$dispatch" "then reject +\`invalid_result\`" \
+  "dispatch rejects invalid_result before a re-emit or salvage"
+require_text_block "$dispatch" "Every one must exit +\`0\`; if any +fails, reject +\`verification_failed\`" \
+  "dispatch requires every verification command to pass"
+require_text_block "$dispatch" "tick the task if it is not ticked" \
+  "dispatch completes a half-written projection on recovery"
+cards_readme="$skills_root/passdown-dispatch/references/executors/README.md"
+[ -f "$cards_readme" ] || fail "dispatch ships an executor card README"
+pass "dispatch ships an executor card README"
+require_text "$cards_readme" "^## Without a card" \
+  "the card README says what a host does without a card"
+
 intake="$skills_root/passdown-intake/SKILL.md"
 require_text "$intake" "planning: markdown \| openspec" \
   "intake supports both markdown and openspec planning"
@@ -181,6 +259,12 @@ require_text_block "$template" "MUST invoke.*passdown-dispatch|passdown-dispatch
 require_text_block "$template" "Superpowers.*executing-plans|executing-plans.*Superpowers" \
   "consumer template prevents Superpowers from bypassing dispatch"
 
+for key in attempt_dir worktree_dir executor_refs concurrency_profiles; do
+  require_text "$template" "$key:" "consumer template documents the $key key"
+done
+reject_text "$template" "cheapest" \
+  "consumer template no longer ranks executors by cost"
+
 plan="$repo_root/templates/plan.md"
 require_text "$plan" "dispatch: external-ok" \
   "standalone markdown plan includes external routing tags"
@@ -197,6 +281,8 @@ require_text "$plan" "Dispatched:" \
 
 require_text_block "$plan" "Dispatched:.*accepted" \
   "standalone plan shows the host acceptance outcome"
+require_text "$plan" "attempt: pd-" \
+  "standalone plan shows the attempt reference"
 require_text_block "$plan" "delegated worker.*never|never.*delegated worker" \
   "standalone plan states that delegated workers never tick tasks"
 

@@ -44,6 +44,52 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   claim-dependent scenarios against a helper whose writer claim is stubbed
   out and requires them to fail. Test-only; never shipped.
 
+### Changed
+
+- `passdown-dispatch` runs delegated work through the v0.5 attempt protocol
+  (PDN-0004, slice S4):
+  - Routing is a ladder: current session → explicitly authorized native
+    subagent → external executor with a recorded reason code. The
+    "cheapest executor" objective is gone; `executors:` lists what is
+    available, and its order is no longer a cost ranking.
+  - A delegated attempt follows 17 named steps through the bundled
+    `passdown-attempt` helper: the receipt, the writer claim when the
+    attempt needs one, and the prompt are on disk before the worker is
+    launched; the worker ends
+    with a `passdown.result/v1` JSON object; only safe stop evidence ends an
+    attempt; the verdict is persisted before the plan is ticked, and the
+    `Dispatched:` line names the attempt (`; attempt: <id>`).
+  - A new Reconcile section tells the host how to resolve each recovery
+    class (C1–C11) in the open. Silence is no longer failure, and nothing
+    uncertain is retried.
+  - An isolation policy: serial by default, a fresh worktree per attempt
+    only when `worktree_dir` is configured and preflight passes, claim-free
+    reads only with a card-verified mutation guard, and no host edits in a
+    location another attempt's claim holds.
+  - Executor mechanics move out of the skill into executor cards
+    (`references/executors/`); the inline invocation table is gone. An
+    executor without a usable card is not eligible for delegation, and
+    delegated dispatch is refused without `jq`. Ineligible is not "the host
+    does it": a task whose owner-mandated executor is ineligible stays
+    pending and is reported, unless the owner's policy names a fallback
+    (#19).
+  - A delegated line counts as accepted only if it binds to an accepted
+    receipt for the exact task, is a host (`main`) line, or is a legacy line
+    for a task with no receipts at all. One plan task per attempt.
+  - The host runs every verification command a task names, and
+    `passdown-attempt verdict accept` refuses unless every `--check` passed
+    (it used to need only one passing check). C6 recovery completes a
+    half-written projection (outcome line written, box not yet ticked).
+  - `templates/plan.md` and `templates/AGENTS.thin.md` document the attempt
+    reference and the new optional keys `attempt_dir`, `worktree_dir`,
+    `executor_refs` and `concurrency_profiles`.
+- The reference host (`tests/harness/ref-host`) prints the skill's step names,
+  and a new harness scenario (`tests/interrupt.sh STEPS`) checks that the
+  host performs the skill's numbered steps by name and in order. The reference
+  host now also takes the settle inspection a card asks for, and F18b uses a
+  card that wrongly claims its worker never detaches and releases the late
+  write inside that window.
+
 ### Fixed
 
 - Delegated completion authority (PDN-0003): a delegated worker — external
