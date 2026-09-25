@@ -6,6 +6,8 @@ how to launch it headless, where its final output lands, how to extract the
 it, and which stop evidence is safe. `passdown-dispatch` keeps the policy;
 cards keep the volatile mechanics.
 
+Shipped here: `kiro-cli.md` (measured by E-KIRO-1 on kiro-cli 2.24.0).
+
 ## Lookup
 
 `<name>.md` in this directory, overridden by a card of the same name in the
@@ -70,6 +72,9 @@ the host:
   launched the worker in a containment scope and the probe shows it empty;
 - starts continuations fresh from files (no session resume).
 
+Check a card with `passdown-attempt validate --file <card> --as card`. It
+refuses unknown keys and capability values, a `verified` or `unsupported`
+value without recorded evidence, and a card that lacks what a launch needs.
 A missing capability key in a card counts as `unverified`. The helper itself
 only warns when a named card is missing and then reads every capability as
 `unverified` with default values; that keeps old receipts readable, but it is
@@ -85,5 +90,4 @@ dispatch contract:
 | Executor | Headless invocation | Notes |
 |---|---|---|
 | `agy` (Antigravity CLI) | `agy --print "<prompt>" [--add-dir <path>]` | `--continue` resumes the last thread |
-| `kiro-cli` | `kiro-cli chat --no-interactive "<prompt>"` | Check non-interactive support with `--help` first |
 | `codex` | Configured Codex adapter on a non-Codex host | On Claude Code this may be `/codex:rescue`; skip it when Codex is the host |

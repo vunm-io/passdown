@@ -233,7 +233,8 @@ scripts/validate-plugin.ps1  # same, for Windows PowerShell (Git Bash/WSL path i
 examples/basic-workspace/  # a worked example: inbox note, OpenSpec change, session log
 docs/SMOKE_TEST.md         # manual verification checklist for install + skills
 docs/INTEGRATIONS.md       # standalone, OpenSpec, and Superpowers workflows
-docs/EXECUTOR_SETUP.md     # pre-flight checklist before adding a dispatch executor
+docs/EXECUTOR_SETUP.md     # measuring and writing an executor card
+docs/evidence/             # recorded measurements behind the shipped executor cards
 docs/GITHUB_SETTINGS.md    # required merge methods and main ruleset
 ```
 
