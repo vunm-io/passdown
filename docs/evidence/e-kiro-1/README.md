@@ -51,9 +51,11 @@ experiment ran; the card records the version actually measured.
   in non-interactive mode`. File reads are allowed by default. Writes need
   `fs_write`; shell commands need `execute_bash`. The worker followed the
   environment clause each time (stopped with `blocked`, no workaround).
-- **Read-only mode.** Without `--trust-tools`, writes and shell were denied
-  (A, B0) while reads worked. Caveat: an MCP server the user configured with
-  auto-approval is outside what was measured.
+- **Read-only mode: not established.** Without `--trust-tools`, writes and
+  shell were denied (A, B0) while reads worked. But an MCP server the user
+  configured with auto-approval is outside what was measured and could
+  write, so the card keeps `read_only_mode: unverified`. A read attempt on
+  kiro-cli takes the writer claim.
 - **No native schema enforcement.** `kiro-cli chat --help` (2.24.0) offers
   no option to enforce an output schema; the host validates.
 - **Resume.** `--resume-id <sessionId>` from the same working directory
@@ -81,6 +83,24 @@ experiment ran; the card records the version actually measured.
 - Resume from a different working directory, or after the session store is
   cleared, was not tried.
 - No sandbox mode was measured (`--cloud` was out of scope).
+
+
+## How stops were attested
+
+The runner that produced these records ([`run.sh`](run.sh), kept as it ran) recorded `owner-attested`
+**by itself** whenever the launch process group was empty and its own scans
+found no surviving descendant and no new kiro process. It asked no person.
+Those scans sample every 0.3 s and match process names, so they can miss a
+process that detaches and exits quickly. That is fine for measuring what
+the CLI does, but it is **not** the attestation the dispatch skill requires
+(steps 10–11: a person confirms, and the host never attests on their
+behalf). The `accepted` verdicts in these fixtures are measurement
+artifacts, not examples of protocol-compliant acceptance.
+The runner was changed after review
+([#21](https://github.com/vunm-io/passdown/pull/21)):
+[`../executor-run.sh`](../executor-run.sh) now stops at `unknown` and needs
+`--finish <part> --attested-by <who>` from the operator before it records a
+stop.
 
 ## A finding about passdown itself
 

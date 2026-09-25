@@ -8,6 +8,9 @@
 #   executor-run.sh <part> <task id> <kind> [--flags "<extra CLI flags>"] [--native-schema]
 #          [--interrupt INT|KILL@<seconds>|INT|KILL@file:<path>+<seconds>]
 #          [--continues <attempt> --answer <file> --resume <session id> [--minimal]]
+#   executor-run.sh --finish <part> --attested-by <who>
+#              resume a run left unknown, after a person has confirmed that no
+#              process for the attempt remains
 #   --minimal  leave the task text out of the prompt (part D: does a resumed
 #              session still know the task?)
 #
@@ -16,7 +19,6 @@
 #   EK_FIXTURE   disposable fixture repository (plan at docs/plan.md)
 #   EK_OUT       directory for this run's records
 #   EK_CARD_DIR  directory holding the executor's card used for the run
-#   EK_OPERATOR  who attests stops the probe cannot prove (default: card measurement operator)
 # The prompt text holds literal backticks (SC2016); ps is filtered on
 # purpose to show every related process with its group and session (SC2009).
 # shellcheck disable=SC2009,SC2016
@@ -27,17 +29,25 @@ helper="$here/../../scripts/passdown-attempt"
 fx="${EK_FIXTURE:?}"
 out="${EK_OUT:?}"
 cards="${EK_CARD_DIR:?}"
-operator="${EK_OPERATOR:-card measurement operator}"
 exe="${EK_EXECUTOR:-kiro-cli}"
 case "$exe" in
   kiro-cli) pat=kiro ;;
-  claude) pat=claude ;;
+  claude) pat=claude ;; # its card is claude-code: claude.md would be CLAUDE.md on macOS
   codex) pat=codex ;;
   *) echo "unknown executor $exe" >&2; exit 2 ;;
 esac
 store="$fx/.git/passdown/attempts"
-part="${1:?part}" task="${2:?task}" kind="${3:?kind}"
-shift 3
+finish="" attested_by=""
+if [ "${1:-}" = --finish ]; then
+  finish=1 part="${2:?part}"
+  shift 2
+  if [ "${1:-}" != --attested-by ]; then echo "--finish needs --attested-by <who>" >&2; exit 2; fi
+  attested_by="${2:?who}"
+  set --
+else
+  part="${1:?part}" task="${2:?task}" kind="${3:?kind}"
+  shift 3
+fi
 flags="" native_schema="" interrupt="" continues="" answer="" resume="" minimal=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -82,6 +92,103 @@ tree_poll() {
   done
 }
 
+finish_tail() {
+  # Result: the card rule per executor. final_text prints the final agent text;
+  # status_of prints how the run ended.
+  final_text() {
+    case "$exe" in
+      kiro-cli) jq -r 'select(.type == "runFinished") | .data.finalText' "$transport" ;;
+      claude) jq -r 'select(.type == "result") | .result // empty' "$transport" ;;
+      codex) jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text' "$transport" | tail -n 1 ;;
+    esac 2>/dev/null
+  }
+  case "$exe" in
+    kiro-cli)
+      final="$(jq -r 'select(.type == "runFinished") | .data | "\(.status) truncated=\(.finalTextTruncated)"' "$transport" 2>/dev/null | tail -n 1)"
+      session="$(jq -r 'select(.data.sessionId != null) | .data.sessionId' "$transport" 2>/dev/null | head -n 1)" ;;
+    claude)
+      final="$(jq -r 'select(.type == "result") | "\(.subtype) is_error=\(.is_error) denials=\(.permission_denials | length)"' "$transport" 2>/dev/null | tail -n 1)"
+      session="$(jq -r 'select(.session_id != null) | .session_id' "$transport" 2>/dev/null | head -n 1)" ;;
+    codex)
+      final="$(jq -r 'select(.type == "turn.completed" or .type == "turn.failed") | .type' "$transport" 2>/dev/null | tail -n 1)"
+      session="$(jq -r 'select(.type == "thread.started") | .thread_id' "$transport" 2>/dev/null | head -n 1)" ;;
+  esac
+  note "- session id: ${session:-none}"
+  note "- end of run: ${final:-none}"
+  payload="$store/$id/payload.extracted"
+  final_text | grep -E '^[[:space:]]*\{.*\}[[:space:]]*$' | tail -n 1 >"$payload" || true
+  if [ -s "$payload" ]; then
+    if H result "$id" --rev "$(rev "$id")" --payload "$payload" >"$out/$part.result.txt" 2>&1; then
+      note "- result: valid ($(jq -r .result.disposition "$store/$id/receipt.json" 2>/dev/null || jq -r .disposition "$payload"))"
+    else
+      note "- result: invalid — $(tr '\n' ' ' <"$out/$part.result.txt")"
+    fi
+  else
+    note "- result: no JSON object in the final text"
+  fi
+  obs="$(jq -r .execution.observation "$store/$id/receipt.json")"
+  if [ "$obs" = stopped ]; then
+    H inspect "$id" --rev "$(rev "$id")" >/dev/null
+    note "- inspect: $(jq -r .artifact.changed "$store/$id/receipt.json") changed path(s), out of scope $(jq -c .artifact.out_of_scope "$store/$id/receipt.json"), plan touched $(jq -r .artifact.plan_touched "$store/$id/receipt.json")"
+  fi
+  # Verdict (section 12), so the claim does not block the next part.
+  if [ "$obs" = stopped ]; then
+    disp="$(jq -r '.result.disposition // ""' "$store/$id/receipt.json")"
+    status="$(jq -r .result.status "$store/$id/receipt.json")"
+    verify="$(sed -n "/^- \[[ xX]\] $task /,/^- \[/p" "$fx/docs/plan.md" | sed -n 's/.*Verification: `\(.*\)`.*/\1/p' | head -n 1)"
+    code_v=0
+    (cd "$fx" && sh -c "$verify") >"$out/$part.check.txt" 2>&1 || code_v=$?
+    note "- host check \`$verify\`: exit $code_v"
+    reason=""
+    if [ "$status" != valid ]; then reason=invalid_result
+    elif [ "$disp" = needs_input ] || [ "$disp" = blocked ]; then reason="$disp"
+    elif [ "$disp" = failed ]; then reason=worker_failed
+    elif [ "$(jq -r .artifact.plan_touched "$store/$id/receipt.json")" = true ]; then reason=plan_tampered
+    elif [ "$(jq -r '.artifact.out_of_scope | length' "$store/$id/receipt.json")" != 0 ]; then reason=scope_violation
+    elif [ "$code_v" != 0 ]; then reason=verification_failed
+    fi
+    if [ -z "$reason" ]; then
+      settle="$(jq -r '."stop.settle_seconds" // "0"' "$store/$id/card.json")"
+      sleep "$settle"
+      H inspect "$id" --rev "$(rev "$id")" >/dev/null
+      if H verdict "$id" accept --rev "$(rev "$id")" --check "$verify=0:$out/$part.check.txt" >"$out/$part.verdict.txt" 2>&1; then
+        TASK="$task" LINE="  - Dispatched: kiro-cli ($(date +%F)) — accepted; verified: $verify; attempt: $id" perl -0pi -e \
+          's/(^- \[ \] \Q$ENV{TASK}\E [^\n]*\n(?:  [^\n]*\n)*)/$1$ENV{LINE}\n/m; s/^- \[ \] \Q$ENV{TASK}\E /- [x] $ENV{TASK} /m' "$fx/docs/plan.md"
+        H projected "$id" --rev "$(rev "$id")" --plan "$fx/docs/plan.md" >/dev/null
+        note "- verdict: accepted and projected"
+      else
+        note "- verdict: accept refused — $(tr '\n' ' ' <"$out/$part.verdict.txt")"
+      fi
+    else
+      H verdict "$id" reject --rev "$(rev "$id")" --reason-code "$reason" --reason "$exe measurement part $part" >/dev/null
+      note "- verdict: rejected ($reason); claim $(jq -r .claim.state "$store/$id/receipt.json")"
+    fi
+  fi
+  note "- git status: \`$(cd "$fx" && git status --porcelain | tr '\n' ';')\`"
+  case "$exe" in
+    kiro-cli) calls="$(jq -r 'select(.type == "sessionUpdate") | .data.update | select(.sessionUpdate == "tool_call") | .title // .kind // "tool"' "$transport" 2>/dev/null)" ;;
+    claude) calls="$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | "\(.name) \(.input.command // .input.file_path // "")"' "$transport" 2>/dev/null)
+  $(jq -r 'select(.type == "result") | .permission_denials[]? | "DENIED \(.tool_name)"' "$transport" 2>/dev/null)" ;;
+    codex) calls="$(jq -r 'select(.type == "item.completed") | .item | select(.type != "agent_message" and .type != "reasoning") | "\(.type) \(.command // ([.changes[]?.path] | join(",")) // "") exit=\(.exit_code // "-") \(.status // "")"' "$transport" 2>/dev/null)" ;;
+  esac
+  note "- tool calls: $(printf '%s' "$calls" | tr '\n' ';' | cut -c1-600)"
+  note "- stderr: \`$(tr '\n' ' ' <"$out/$part.stderr" | cut -c1-400)\`"
+  cp "$transport" "$out/$part.transport.jsonl"
+  cp "$store/$id/receipt.json" "$out/$part.receipt.json"
+  echo "$id"
+}
+
+if [ -n "$finish" ]; then
+  # shellcheck disable=SC1090
+  . "$out/$part.state"
+  transport="$store/$id/transport.log"
+  H observe "$id" stopped --rev "$(rev "$id")" --evidence owner-attested --attested-by "$attested_by" --exit "$code" >/dev/null
+  note "- stop: owner-attested by $attested_by, after checking the listings above"
+  rm -f "$out/$part.state"
+  finish_tail
+  exit 0
+fi
+
 : >"$log"
 note "# $exe part $part — task $task ($kind)"
 note ""
@@ -89,7 +196,7 @@ note "- date (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 note "- $exe: $("$exe" --version 2>&1 | head -n 1)"
 note "- host OS: $(sw_vers -productName 2>/dev/null || uname -s) $(sw_vers -productVersion 2>/dev/null || uname -r)"
 
-args=(--task-ref "docs/plan.md#$task" --planner-repo "$fx" --kind "$kind" --executor "$exe" --card "$exe@1"
+args=(--task-ref "docs/plan.md#$task" --planner-repo "$fx" --kind "$kind" --executor "$exe" --card "$([ "$exe" = claude ] && echo claude-code || echo "$exe")@1"
   --host claude --session card-measurement --place-repo "$fx")
 if [ -n "$continues" ]; then
   args+=(--tier external --reason-code review-experiment --reason "$exe measurement continuation" --continues "$continues")
@@ -192,101 +299,20 @@ note '```'
 facts="$(H probe "$id")"
 note "- probe: \`$facts\`"
 
-# Stop: only safe evidence. This card has not measured descendants, so the
-# operator checks the process listing above and attests.
-if jq -e '.safe_evidence | index("exit+pgroup-empty")' <<<"$facts" >/dev/null; then
-  H observe "$id" stopped --rev "$(rev "$id")" --evidence exit+pgroup-empty --exit "$code" >/dev/null
-  note "- stop: exit+pgroup-empty"
+# Stop: only safe machine evidence ends the attempt here. Otherwise the
+# attempt stays unknown and a person must confirm (dispatch steps 10-11):
+# the operator checks the listings above, then runs
+#   executor-run.sh --finish <part> --attested-by <who>
+if jq -e '.safe_evidence | index("exit+pgroup-empty") or index("exit+scope-empty")' <<<"$facts" >/dev/null; then
+  H observe "$id" stopped --rev "$(rev "$id")" --evidence "$(jq -r '.safe_evidence | map(select(. != "owner-attested"))[0]' <<<"$facts")" --exit "$code" >/dev/null
+  note "- stop: $(jq -r '.safe_evidence | map(select(. != "owner-attested"))[0]' <<<"$facts")"
 else
   H observe "$id" unknown --rev "$(rev "$id")" --note "parent exited ($code); descendants not ruled out" --parent-exited >/dev/null
-  if [ "$(jq -r .pgroup_members <<<"$facts")" = 0 ] && [ -z "$survivors" ] && [ -z "${new_kiro// /}" ]; then
-    H observe "$id" stopped --rev "$(rev "$id")" --evidence owner-attested --attested-by "$operator" --exit "$code" >/dev/null
-    note "- stop: owner-attested by $operator (process group empty, no descendant and no new executor process alive)"
-  else
-    note "- stop: NOT attested — processes remain; attempt left unknown"
-  fi
+  printf 'id=%s\ntask=%s\nkind=%s\ncode=%s\n' "$id" "$task" "$kind" "$code" >"$out/$part.state"
+  note "- stop: unknown, waiting for the operator's confirmation (group members $(jq -r .pgroup_members <<<"$facts"), surviving descendants:${survivors:- none}, new $exe processes: ${new_kiro:-none})"
+  echo "attempt $id is unknown: check the listings in $log, then run: $0 --finish $part --attested-by <who>" >&2
+  echo "$id"
+  exit 0
 fi
 
-# Result: the card rule per executor. final_text prints the final agent text;
-# status_of prints how the run ended.
-final_text() {
-  case "$exe" in
-    kiro-cli) jq -r 'select(.type == "runFinished") | .data.finalText' "$transport" ;;
-    claude) jq -r 'select(.type == "result") | .result // empty' "$transport" ;;
-    codex) jq -r 'select(.type == "item.completed" and .item.type == "agent_message") | .item.text' "$transport" | tail -n 1 ;;
-  esac 2>/dev/null
-}
-case "$exe" in
-  kiro-cli)
-    final="$(jq -r 'select(.type == "runFinished") | .data | "\(.status) truncated=\(.finalTextTruncated)"' "$transport" 2>/dev/null | tail -n 1)"
-    session="$(jq -r 'select(.data.sessionId != null) | .data.sessionId' "$transport" 2>/dev/null | head -n 1)" ;;
-  claude)
-    final="$(jq -r 'select(.type == "result") | "\(.subtype) is_error=\(.is_error) denials=\(.permission_denials | length)"' "$transport" 2>/dev/null | tail -n 1)"
-    session="$(jq -r 'select(.session_id != null) | .session_id' "$transport" 2>/dev/null | head -n 1)" ;;
-  codex)
-    final="$(jq -r 'select(.type == "turn.completed" or .type == "turn.failed") | .type' "$transport" 2>/dev/null | tail -n 1)"
-    session="$(jq -r 'select(.type == "thread.started") | .thread_id' "$transport" 2>/dev/null | head -n 1)" ;;
-esac
-note "- session id: ${session:-none}"
-note "- end of run: ${final:-none}"
-payload="$store/$id/payload.extracted"
-final_text | grep -E '^[[:space:]]*\{.*\}[[:space:]]*$' | tail -n 1 >"$payload" || true
-if [ -s "$payload" ]; then
-  if H result "$id" --rev "$(rev "$id")" --payload "$payload" >"$out/$part.result.txt" 2>&1; then
-    note "- result: valid ($(jq -r .result.disposition "$store/$id/receipt.json" 2>/dev/null || jq -r .disposition "$payload"))"
-  else
-    note "- result: invalid — $(tr '\n' ' ' <"$out/$part.result.txt")"
-  fi
-else
-  note "- result: no JSON object in the final text"
-fi
-obs="$(jq -r .execution.observation "$store/$id/receipt.json")"
-if [ "$obs" = stopped ]; then
-  H inspect "$id" --rev "$(rev "$id")" >/dev/null
-  note "- inspect: $(jq -r .artifact.changed "$store/$id/receipt.json") changed path(s), out of scope $(jq -c .artifact.out_of_scope "$store/$id/receipt.json"), plan touched $(jq -r .artifact.plan_touched "$store/$id/receipt.json")"
-fi
-# Verdict (section 12), so the claim does not block the next part.
-if [ "$obs" = stopped ]; then
-  disp="$(jq -r '.result.disposition // ""' "$store/$id/receipt.json")"
-  status="$(jq -r .result.status "$store/$id/receipt.json")"
-  verify="$(sed -n "/^- \[[ xX]\] $task /,/^- \[/p" "$fx/docs/plan.md" | sed -n 's/.*Verification: `\(.*\)`.*/\1/p' | head -n 1)"
-  code_v=0
-  (cd "$fx" && sh -c "$verify") >"$out/$part.check.txt" 2>&1 || code_v=$?
-  note "- host check \`$verify\`: exit $code_v"
-  reason=""
-  if [ "$status" != valid ]; then reason=invalid_result
-  elif [ "$disp" = needs_input ] || [ "$disp" = blocked ]; then reason="$disp"
-  elif [ "$disp" = failed ]; then reason=worker_failed
-  elif [ "$(jq -r .artifact.plan_touched "$store/$id/receipt.json")" = true ]; then reason=plan_tampered
-  elif [ "$(jq -r '.artifact.out_of_scope | length' "$store/$id/receipt.json")" != 0 ]; then reason=scope_violation
-  elif [ "$code_v" != 0 ]; then reason=verification_failed
-  fi
-  if [ -z "$reason" ]; then
-    settle="$(jq -r '."stop.settle_seconds" // "0"' "$store/$id/card.json")"
-    sleep "$settle"
-    H inspect "$id" --rev "$(rev "$id")" >/dev/null
-    if H verdict "$id" accept --rev "$(rev "$id")" --check "$verify=0:$out/$part.check.txt" >"$out/$part.verdict.txt" 2>&1; then
-      TASK="$task" LINE="  - Dispatched: kiro-cli ($(date +%F)) — accepted; verified: $verify; attempt: $id" perl -0pi -e \
-        's/(^- \[ \] \Q$ENV{TASK}\E [^\n]*\n(?:  [^\n]*\n)*)/$1$ENV{LINE}\n/m; s/^- \[ \] \Q$ENV{TASK}\E /- [x] $ENV{TASK} /m' "$fx/docs/plan.md"
-      H projected "$id" --rev "$(rev "$id")" --plan "$fx/docs/plan.md" >/dev/null
-      note "- verdict: accepted and projected"
-    else
-      note "- verdict: accept refused — $(tr '\n' ' ' <"$out/$part.verdict.txt")"
-    fi
-  else
-    H verdict "$id" reject --rev "$(rev "$id")" --reason-code "$reason" --reason "$exe measurement part $part" >/dev/null
-    note "- verdict: rejected ($reason); claim $(jq -r .claim.state "$store/$id/receipt.json")"
-  fi
-fi
-note "- git status: \`$(cd "$fx" && git status --porcelain | tr '\n' ';')\`"
-case "$exe" in
-  kiro-cli) calls="$(jq -r 'select(.type == "sessionUpdate") | .data.update | select(.sessionUpdate == "tool_call") | .title // .kind // "tool"' "$transport" 2>/dev/null)" ;;
-  claude) calls="$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | "\(.name) \(.input.command // .input.file_path // "")"' "$transport" 2>/dev/null)
-$(jq -r 'select(.type == "result") | .permission_denials[]? | "DENIED \(.tool_name)"' "$transport" 2>/dev/null)" ;;
-  codex) calls="$(jq -r 'select(.type == "item.completed") | .item | select(.type != "agent_message" and .type != "reasoning") | "\(.type) \(.command // ([.changes[]?.path] | join(",")) // "") exit=\(.exit_code // "-") \(.status // "")"' "$transport" 2>/dev/null)" ;;
-esac
-note "- tool calls: $(printf '%s' "$calls" | tr '\n' ';' | cut -c1-600)"
-note "- stderr: \`$(tr '\n' ' ' <"$out/$part.stderr" | cut -c1-400)\`"
-cp "$transport" "$out/$part.transport.jsonl"
-cp "$store/$id/receipt.json" "$out/$part.receipt.json"
-echo "$id"
+finish_tail

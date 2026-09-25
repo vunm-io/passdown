@@ -2,7 +2,7 @@
 
 The E-KIRO-1 method (§19 of `docs/design/PDN-0004-v05-acceptance-recovery.md`,
 [`../e-kiro-1/`](../e-kiro-1/)) applied to `claude -p`. Result: the card at
-`plugins/passdown/skills/passdown-dispatch/references/executors/claude.md`.
+`plugins/passdown/skills/passdown-dispatch/references/executors/claude-code.md`.
 
 | | |
 |---|---|
@@ -46,6 +46,11 @@ The E-KIRO-1 method (§19 of `docs/design/PDN-0004-v05-acceptance-recovery.md`,
   including edits through the shell. `--allowedTools` is variadic: use
   `--allowedTools=<tools>`, or it swallows the prompt. The user's settings,
   hooks, plugins and MCP servers load into `-p` runs.
+- **Read-only mode: not established.** The default mode denied writes only
+  with a settings file that grants nothing; the invocation inherits the
+  user's permissions, hooks and MCP servers. The card keeps
+  `read_only_mode: unverified`, so a read attempt on Claude takes the writer
+  claim.
 - **The permission layer, not the prompt, stops a workaround.** In B0 the
   worker tried a shell redirect after `Write` was denied, against the
   environment clause.
@@ -57,6 +62,26 @@ The E-KIRO-1 method (§19 of `docs/design/PDN-0004-v05-acceptance-recovery.md`,
   writing (E2). `descendants_may_outlive` is therefore **verified**: an empty
   launch process group is never a safe stop for Claude.
 - **`--json-schema` does not enforce passdown's result schema** (S).
+
+
+## How stops were attested
+
+The runner that produced these records ([`../executor-run.sh`](../executor-run.sh) as it was then) recorded `owner-attested`
+**by itself** whenever the launch process group was empty and its own scans
+found no surviving descendant and no new claude process. It asked no person.
+Those scans sample every 0.3 s and match process names, so they can miss a
+process that detaches and exits quickly. That is fine for measuring what
+the CLI does, but it is **not** the attestation the dispatch skill requires
+(steps 10–11: a person confirms, and the host never attests on their
+behalf). The `accepted` verdicts in these fixtures are measurement
+artifacts, not examples of protocol-compliant acceptance.
+In E2 the scans did see the survivor, and the runner left the attempt
+`unknown`; the operator killed it before attesting.
+The runner was changed after review
+([#21](https://github.com/vunm-io/passdown/pull/21)):
+[`../executor-run.sh`](../executor-run.sh) now stops at `unknown` and needs
+`--finish <part> --attested-by <who>` from the operator before it records a
+stop.
 
 ## Not measured
 

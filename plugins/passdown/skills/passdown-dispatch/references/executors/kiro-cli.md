@@ -17,7 +17,7 @@ capabilities:
   exit_code_meaningful: verified
   descendants_may_outlive: unverified
   cancel_signal_honored: verified
-  read_only_mode: verified
+  read_only_mode: unverified
   sandbox_confined_writes: unverified
 invocation:
   headless: 'kiro-cli chat --output-format stream-json --trust-tools=<tools> "<prompt>"'
@@ -46,7 +46,7 @@ implies non-interactive mode. Pass the trust list the task needs:
 
 | Task | `--trust-tools=` |
 |---|---|
-| read or review (claim-free read with `--mutation-guard readonly:no-trust-flags`) | leave the flag out |
+| read or review | leave the flag out; the attempt still takes the writer claim (below) |
 | edits files only | `fs_read,fs_write` |
 | edits files and runs commands (tests, builds) | `fs_read,fs_write,execute_bash` |
 
@@ -56,6 +56,11 @@ environment clause returns `blocked`. That is an environment problem for the
 host: fix the trust list and continue, never widen it silently. In E-KIRO-1 a
 worker given only `fs_write` wrote the file and then returned `blocked`
 because it could not run the verification command.
+
+**No claim-free reads.** Without trust flags, writes and shell were denied
+in E-KIRO-1, but an MCP server the user configured with auto-approval is
+outside what was measured and could write. So `read_only_mode` stays
+`unverified`, and a read attempt on kiro-cli takes the writer claim.
 
 **Session and resume.** The first `metadata` event carries `data.sessionId`;
 record it with `observe running --provider-session` if you have no pid. To

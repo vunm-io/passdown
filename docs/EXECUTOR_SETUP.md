@@ -45,7 +45,7 @@ repository, never in a repository you care about. `docs/evidence/fixture.sh`
 builds one; `docs/evidence/executor-run.sh` drives one run through `new`,
 `arm`, the launch, `observe`, `probe`, `result`, `inspect` and a verdict, and
 records the prompt, transport, receipt and the process tree seen while it
-ran. It knows `kiro-cli`, `claude` and `codex` (`EK_EXECUTOR`); for another
+ran. It knows `kiro-cli`, `claude` (card `claude-code`) and `codex` (`EK_EXECUTOR`); for another
 executor, add its launch line, session field and result extraction. The
 shipped cards' records (`docs/evidence/e-kiro-1/`, `e-claude-1/`,
 `e-codex-1/`) are worked examples, including the runs that went wrong.

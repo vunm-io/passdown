@@ -1,5 +1,5 @@
 ---
-card: claude
+card: claude-code
 card_version: 1
 measured:
   date: 2026-09-25
@@ -17,7 +17,7 @@ capabilities:
   exit_code_meaningful: unsupported
   descendants_may_outlive: verified
   cancel_signal_honored: verified
-  read_only_mode: verified
+  read_only_mode: unverified
   sandbox_confined_writes: unverified
 invocation:
   headless: 'claude -p --output-format stream-json --verbose --permission-mode <mode> [--allowedTools=<tools>] "<prompt>"'
@@ -35,7 +35,7 @@ environment_constraints: [logged-in claude CLI (claude auth login), usage limits
 discovery_hint: pgrep -fl 'claude -p' for the worker and pgrep -fl 'shell-snapshots/snapshot-' for its Bash tool shells, which run in their own process groups
 toolchain_check: null
 ---
-# claude (Claude Code CLI)
+# claude-code (Claude Code CLI)
 
 Measured by E-CLAUDE-1 on Claude Code 2.1.193; the record is
 `docs/evidence/e-claude-1/` in the passdown repository. This card also
@@ -47,7 +47,7 @@ the task:
 
 | Task | Flags |
 |---|---|
-| read or review (read-only mode) | no `--permission-mode` (default) and no `--allowedTools` |
+| read or review | no `--permission-mode` (default) and no `--allowedTools`; the attempt still takes the writer claim (below) |
 | edits files | `--permission-mode acceptEdits` |
 | edits files and runs commands | `--permission-mode acceptEdits --allowedTools=Bash` |
 
@@ -55,7 +55,15 @@ Use `--allowedTools=<tools>` with `=`: the option is variadic and otherwise
 takes the prompt as one more tool name (the CLI then exits 1, "Input must be
 provided"). The user's own settings, hooks, plugins and MCP servers load into
 every `-p` run; a settings file that allows more than the default widens
-what the worker can do, including in read-only mode.
+what the worker can do.
+
+**No claim-free reads.** The default permission mode denied edits and
+writing shell commands in E-CLAUDE-1, but only with a settings file that
+grants nothing: the invocation inherits the user's permissions, hooks and
+MCP servers, and any of them can write. So `read_only_mode` stays
+`unverified`, and a read attempt on Claude takes the writer claim like a
+writer. An invocation that removes write capability independently of
+inherited settings has not been measured.
 
 **Workarounds.** When `Write` was denied, the measured worker tried to write
 through a shell redirect instead, against the environment clause. Only the
