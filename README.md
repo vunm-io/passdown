@@ -64,8 +64,8 @@ also why the skills survive any `cwd` and any repo.
 |---|---|
 | `passdown-intake` | Turns raw notes from an inbox (dropped there by weak capture tools like chat apps) into properly planned work in the right repo |
 | `passdown-dispatch` | Routes each task to the main session, an authorized native subagent, or an external CLI; records every delegated attempt and verifies its result before accepting it |
-| `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, and the traps that live nowhere else |
-| `passdown-pickup` | Starts the next shift: reads the latest handoff and plan state, verifies them against the working tree, and briefs the session |
+| `passdown-handoff` | Ends every session with a small handoff log: summary, next steps, open dispatch attempts, and the traps that live nowhere else |
+| `passdown-pickup` | Starts the next shift: reads the latest handoff, plan state and any unresolved dispatch attempts, verifies them against the working tree, and briefs the session without changing anything |
 
 **The dispatch gate.** `passdown-dispatch` is a *pre-execution gate*, not just
 another skill: before a multi-task plan is executed — by the session itself or
