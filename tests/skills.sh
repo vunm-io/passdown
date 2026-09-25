@@ -167,6 +167,21 @@ require_text_block "$dispatch" "Every one must exit +\`0\`; if any +fails, rejec
   "dispatch requires every verification command to pass"
 require_text_block "$dispatch" "tick the task if it is not ticked" \
   "dispatch completes a half-written projection on recovery"
+require_text_block "$dispatch" "Give the worker the schema itself" \
+  "dispatch puts the result schema into the prompt, not only its name"
+# Shipped executor cards (PDN-0004 S6): each passes the helper's card rules
+# (format, evidence behind measured values, launch eligibility), and a
+# measured card's evidence exists in this repository.
+for card in "$skills_root"/passdown-dispatch/references/executors/*.md; do
+  [ "$(basename "$card")" != README.md ] || continue
+  "$repo_root/scripts/passdown-attempt" validate --file "$card" --as card >/dev/null ||
+    fail "executor card $(basename "$card") is invalid: $("$repo_root/scripts/passdown-attempt" validate --file "$card" --as card 2>&1)"
+  evidence="$(awk '/^  evidence:/ { sub(/^  evidence:[ \t]*/, ""); print; exit }' "$card")"
+  case "$evidence" in
+    docs/*) [ -e "$repo_root/$evidence" ] || fail "executor card $(basename "$card") names missing evidence $evidence" ;;
+  esac
+  pass "executor card $(basename "$card") is valid and its evidence exists"
+done
 cards_readme="$skills_root/passdown-dispatch/references/executors/README.md"
 [ -f "$cards_readme" ] || fail "dispatch ships an executor card README"
 pass "dispatch ships an executor card README"

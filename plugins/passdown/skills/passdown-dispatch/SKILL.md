@@ -86,8 +86,10 @@ delegated attempt only when its card states `invocation.headless`,
 `descendants_may_outlive: unsupported`. A card whose capabilities are all
 `unverified` can be eligible; having a card never means a capability was
 measured, and it never overrides an executor-note veto. A native subagent
-uses the current host's card. The helper only warns when `new` names a
-card it cannot find, so this check is yours to make before step 3.
+uses the current host's card. Check a card with `passdown-attempt validate
+--file <card> --as card`: it refuses a card that breaks these rules or the
+card format. `new` itself only warns when it cannot find the named card, so
+this check is yours to make before step 3.
 
 **When the chosen executor is not eligible** (no usable card, or an
 executor-note veto), what happens depends on who chose it:
@@ -300,10 +302,13 @@ otherwise.
    - *Depth:* "Do not dispatch this work, or any part of it, to another
      external agent CLI. Your provider's own native subagents are your
      provider's business."
-   When the card marks `native_schema_enforcement` as `verified`, also pass
-   `schemas/result.v1.schema.json` from this skill's directory. Host
-   validation stays the rule either way. Never tell the worker where the
-   attempt store is.
+   **Give the worker the schema itself**, not only its name: a worker cannot
+   know what `passdown.result/v1` looks like. When the card marks
+   `native_schema_enforcement` as `verified`, pass
+   `schemas/result.v1.schema.json` from this skill's directory through the
+   executor's own flag; otherwise paste that file's content into the prompt
+   after the result clause. Host validation stays the rule either way. Never
+   tell the worker where the attempt store is.
 5. `arm` — **Arm.** `passdown-attempt arm <id> --rev <n> --prompt <file>`
    stores the exact prompt and records the observation `unknown` **before**
    launch. Launch only after it returns `0`. A crash from here on leaves an
