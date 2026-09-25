@@ -2075,6 +2075,49 @@ ships it.
   new delegated attempts (S4 eligibility rule); the helper still reads a
   missing card as all-`unverified`, so existing receipts stay readable.
 
+**Implementation notes (S6).**
+
+- **Card lint lives in the helper.** `validate --file <card> --as card`
+  applies the §18 rules and the S4 eligibility rule with the helper's own
+  card parser. Hosts, `tests/skills.sh` and the attempt snapshot therefore
+  read a card the same way.
+- **Versions moved.** kiro-cli had gone from 2.22.1 (this design) to
+  2.24.0 by the time E-KIRO-1 ran. codex-cli 0.142.5 could no longer run its
+  default model, and the owner updated it to 0.157.0 before E-CODEX-1. The
+  `claude` CLI needed a login of its own; the desktop session's
+  authentication does not carry over. Each card records the version that
+  was measured.
+- **Claude and Codex were measured too** (E-CLAUDE-1, E-CODEX-1) with the
+  E-KIRO-1 method, using a shared fixture (`docs/evidence/fixture.sh`) and
+  runner (`docs/evidence/executor-run.sh`). §26.2 asked only that their
+  cards "list only what was measured"; measuring all three with the same
+  runs made the cards comparable.
+- **The §8.3 safe-stop rule was exercised on real CLIs.** Claude Code and
+  Codex run tool shells in their own process groups. After `SIGKILL` of the
+  worker those shells survived and kept writing while the launch process
+  group was already empty: a live case of F18. The runner treated it by the
+  protocol: it did not attest, the attempt stayed `unknown`, and the claim
+  stayed held until the operator stopped the survivor. Their cards mark
+  `descendants_may_outlive: verified`. kiro-cli kept every process in the
+  launch group, but a trusted shell could detach one, so it stays
+  `unverified`. On macOS, every attempt on the three executors ends with
+  owner attestation unless it ran in a containment scope.
+- **No executor enforces passdown's result schema.** kiro-cli has no schema
+  option. Claude's `--json-schema` produced no structured output for it.
+  Codex's `--output-schema` was rejected by the API, which accepts only a
+  stricter JSON Schema subset. The first E-KIRO-1 write run also showed a
+  worker copying a hand-written schema description, mistakes included. The
+  dispatch skill (step 4) therefore puts the schema itself into the prompt.
+- **Exit codes differ.** Claude exits 0 after `SIGINT`; kiro-cli and Codex
+  exit 1. The Claude card marks `exit_code_meaningful: unsupported`, and all
+  three cards say to judge a run by its final event and the host checks.
+- **Operator lessons** now in `docs/EXECUTOR_SETUP.md`:
+  - interrupt a few seconds after the task starts writing, not at a fixed
+    time (Codex took about 25 s to start);
+  - close stdin for `codex exec`;
+  - pass Claude's variadic `--allowedTools` with `=`;
+  - measure `KILL` as well as the cancel signal.
+
 **S7 — Real-host evidence, docs, migration, release.**
 - Files: `docs/evidence/v0.5.0/`, README, `docs/INTEGRATIONS.md`,
   `docs/SMOKE_TEST.md`, CHANGELOG `[0.5.0]`, VERSION + manifests.
