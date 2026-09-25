@@ -1720,9 +1720,24 @@ through `tests/harness/ref-host` and `tests/harness/fake-executor`:
   worker tampering.
 
 **Release gate:** all of Layer A green in CI (F19, F21, F23 and F25 run in a
-concurrency stress job); Layer B run for at least F1, F2, F4, F8, F10–F15, F18 and
-F27 with zero false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
+concurrency stress job); Layer B run for F1, F2, F11, F18 and F27 with zero
+false acceptance and zero silent duplicate overlapping writers. The 20-organic-dispatch measurement from the RFC is
 post-release measurement, not a gate.
+
+*Narrowed 2026-09-25 (S7 scoping).* The gate first listed F1, F2, F4, F8,
+F10–F15, F18 and F27. Layer A already runs every one of them in CI against
+the reference host. Layer B asks a different question: does a real host
+follow the prose? One scenario per invariant answers it:
+
+- F1: a worker does not accept its own work (I-1);
+- F2: pickup does not trust a forged `accepted` line after a crash (§13.2);
+- F11: an interrupted launch window is never taken as "not launched"
+  (§8.1);
+- F18: a surviving descendant blocks a stop and a second writer (§8.3, I-12);
+- F27: routing respects an owner-mandated executor (§17).
+
+The other Layer B scenarios (F4, F8, F10, F12–F15) move to post-release
+evidence under `docs/evidence/v0.5.x/`.
 
 ## 21. Migration from current v0.4.x files
 
@@ -2149,8 +2164,22 @@ ships it.
 **S7 — Real-host evidence, docs, migration, release.**
 - Files: `docs/evidence/v0.5.0/`, README, `docs/INTEGRATIONS.md`,
   `docs/SMOKE_TEST.md`, CHANGELOG `[0.5.0]`, VERSION + manifests.
-- Acceptance: Layer B scenarios listed in §20.2 gate pass; `release.yml`
-  green; migration table §21 reflected in README.
+- Acceptance: the Layer B scenarios in the §20.2 release gate pass;
+  `release.yml` green; migration table §21 reflected in README; the release
+  notes state the attestation cost below.
+- **Owner attestation is the v0.5 cost (decision 2026-09-25).** The measured
+  cards (S6) show that no shipped executor gives safe machine stop evidence
+  on macOS. Claude Code and Codex tool shells survive `SIGKILL`; kiro-cli
+  could detach through a trusted shell. So every delegated attempt ends with
+  a person confirming that no process remains, unless it ran in a
+  containment scope. v0.5 ships this cost and documents it in the README
+  and release notes, and does not weaken §8.3 to avoid it. Lowering the cost
+  is v0.6 work: a containment scope on macOS, or measured evidence that a
+  normal (not killed) exit leaves nothing behind.
+- **Who attests in Layer B.** The owner, by hand, during each real-host run.
+  The harness may pause and show the process listings, but it never records
+  `owner-attested` itself (the rule #21 applied to the measurement runner).
+  The narrowed gate keeps this to five scenarios.
 - Independent merge: this is the release PR (`release/v0.5.0` → `main`).
 - Rollback: do not merge; `main` stays at v0.4.x.
 
