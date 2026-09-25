@@ -20,7 +20,7 @@ capabilities:
   read_only_mode: verified
   sandbox_confined_writes: verified
 invocation:
-  headless: 'codex exec --json --skip-git-repo-check --sandbox <read-only|workspace-write> "<prompt>" </dev/null'
+  headless: 'codex exec --json --skip-git-repo-check --sandbox <read-only|workspace-write> [--ignore-user-config] "<prompt>" </dev/null'
   output_capture: stdout, JSON Lines events
   result_extraction: text of the last item.completed event whose item.type is agent_message, then its last line that is a JSON object; turn.failed or no turn.completed means no result
   resume: 'codex exec resume --json --skip-git-repo-check -c sandbox_mode=<mode> <thread_id> "<prompt>" </dev/null'
@@ -29,7 +29,7 @@ stop:
   containment: [pgroup]
   settle_seconds: 5
 permissions:
-  mechanism: --sandbox read-only (the default, OS-enforced) or workspace-write (writes inside the workspace only); resume takes -c sandbox_mode=<mode>
+  mechanism: --sandbox read-only (the default, OS-enforced) or workspace-write (writes inside the workspace only); resume takes -c sandbox_mode=<mode>; the read-only mode is --sandbox read-only --ignore-user-config
   notes: danger-full-access and --dangerously-bypass-approvals-and-sandbox were not used or measured
 environment_constraints: [logged-in codex CLI, stdin must be closed or it waits for input, the user's skills and plugins load and marketplaces refresh over the network, about 25 s start-up measured]
 discovery_hint: pgrep -fl 'codex exec' for the worker; its tool shells (/bin/zsh -c or -lc) run in their own process groups under the attempt location
@@ -47,11 +47,16 @@ backgrounded worker waits. Choose the sandbox by task:
 
 | Task | Flags |
 |---|---|
-| read or review (read-only mode) | `--sandbox read-only` (also the default) |
+| read or review, claim-free (`--mutation-guard readonly:sandbox-read-only+ignore-user-config`) | `--sandbox read-only --ignore-user-config` |
 | edits files and runs commands in the repository | `--sandbox workspace-write` |
 
-The read-only sandbox is enforced by the OS: a write fails with `operation
-not permitted`, and the measured worker returned `blocked` with that error.
+The read-only sandbox is enforced by the OS: a shell write fails with
+`operation not permitted`, and `apply_patch` is refused with "writing is
+blocked by read-only sandbox" (E-CODEX-1 runs R and R2). The read-only mode
+needs `--ignore-user-config` as well: without it the user's MCP servers and
+plugins load, and they are outside the sandbox and were not measured. With
+it, no plugin or MCP activity appeared.
+
 `workspace-write` refused a write in the home directory. Writes to `/tmp`
 and `$TMPDIR` were not measured, so treat them as possibly allowed.
 
