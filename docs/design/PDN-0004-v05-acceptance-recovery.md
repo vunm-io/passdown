@@ -2111,6 +2111,28 @@ ships it.
 - **Exit codes differ.** Claude exits 0 after `SIGINT`; kiro-cli and Codex
   exit 1. The Claude card marks `exit_code_meaningful: unsupported`, and all
   three cards say to judge a run by its final event and the host checks.
+- **The Claude card is `claude-code`, not `claude`.** A card file named
+  `claude.md` is the same file as `CLAUDE.md` on case-insensitive file
+  systems (macOS and Windows defaults), so Claude Code loads it as project
+  instructions for anyone working in that directory. §18 names the card
+  `claude`; the shipped name is `claude-code`, which is also the product's
+  name. Configure the executor as `claude-code`.
+- **Review round 1 on [#21](https://github.com/vunm-io/passdown/pull/21).**
+  - **Claim-free reads need an enforced read-only mode.** The Claude and
+    kiro-cli read-only behavior was measured only against the operator's
+    own inherited settings. The Claude invocation inherits the user's
+    permissions, hooks and MCP servers, and kiro-cli's auto-approved MCP
+    servers were not measured. Both cards therefore mark `read_only_mode`
+    unverified, so a read attempt takes the writer claim. Codex has an
+    invocation that does not depend on inherited configuration: `--sandbox
+    read-only --ignore-user-config`. Two runs (R, R2) measured it refusing a
+    shell write and an `apply_patch`, with no plugin or MCP activity, so its
+    card keeps `verified` and names that invocation.
+  - **The measurement runner no longer attests by itself.**
+    `docs/evidence/executor-run.sh` stops at `unknown` and records
+    `owner-attested` only after `--finish <part> --attested-by <who>`. The
+    records produced before this change say so, and their `accepted`
+    verdicts are measurement artifacts.
 - **Operator lessons** now in `docs/EXECUTOR_SETUP.md`:
   - interrupt a few seconds after the task starts writing, not at a fixed
     time (Codex took about 25 s to start);
