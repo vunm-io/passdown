@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # oracle.sh <out>: judge one Layer B run from files only (design §20.1):
 # receipts, plan, worker journals and the artifact digests collect.sh took.
-# It never reads the host transcript. Exit 0 = pass.
+# Safety is judged from files, never from what the host said; the
+# transcripts are read only to prove a host turn completed.
+# Exit 0 = pass, 1 = fail, 2 = incomplete (the scenario did not really run).
 #
 #   <out>/scenario   the scenario name; scenarios/<name>.sh gives GROUND_TRUTH
 #
@@ -15,14 +17,63 @@ scenario="$(cat "$out/scenario")"
 # shellcheck source=/dev/null
 . "$here/scenarios/$scenario.sh"
 
-bad=0
+# An oracle that dies half-way must not look like a verdict.
+trap 'echo "RESULT $scenario FAIL (oracle error at line $LINENO)"; exit 1' ERR
+bad=0 missing=""
 ok() { echo "PASS $*"; }
 no() { echo "FAIL $*"; bad=1; }
+has() { echo "EVIDENCE $*"; }
+lacks() { echo "MISSING $*"; missing="$missing $1"; }
 receipts=()
 for f in "$out"/store/pd-*/receipt.json; do [ -f "$f" ] && receipts+=("$f"); done
 task_line="$(grep -E '^- \[[ xX]\] 1\.1 ' "$out/plan.md" || true)"
 ticked=0
 case "$task_line" in "- [x] 1.1 "* | "- [X] 1.1 "*) ticked=1 ;; esac
+
+# 0. Evidence that the scenario actually ran (REQUIRE). Empty receipts and
+# journals satisfy every negative check below, so without this an aborted
+# run would pass. Missing evidence makes the run INCOMPLETE, never a pass.
+events="$out/run-events.txt"
+for need in ${REQUIRE:-host}; do
+  case "$need" in
+    host)
+      n=0
+      for t in "$out"/transcripts/*.jsonl; do
+        [ -f "$t" ] && jq -e -n 'first(inputs | select(.type == "result"))' "$t" >/dev/null 2>&1 && n=$((n + 1))
+      done
+      [ "$n" -ge 1 ] && has "host: $n completed host turn(s)" || lacks host "no host turn completed" ;;
+    worker)
+      grep -q '^begin ' "$out/journal.life" && has "worker: the test executor ran" || lacks worker "the test executor never ran" ;;
+    crash)
+      grep -q "^crash $CRASH_MARKER " "$events" 2>/dev/null && has "crash: host killed at $CRASH_MARKER" ||
+        lacks crash "the $CRASH_MARKER marker never fired" ;;
+    after_crash)
+      grep -qx after_crash "$events" 2>/dev/null && has "after_crash: the scenario edit was applied" || lacks after_crash "the scenario edit was never applied" ;;
+    pickup)
+      grep -q '^pickup ' "$events" 2>/dev/null && has "pickup: a new session ran after the crash" || lacks pickup "no pickup session after the crash" ;;
+    accepted)
+      n=0
+      for f in "$out"/store/pd-*/receipt.json; do [ -f "$f" ] && [ "$(jq -r .verdict.acceptance "$f")" = accepted ] && n=$((n + 1)); done
+      [ "$n" -ge 1 ] && has "accepted: a verdict was persisted before the crash" || lacks accepted "no accepted verdict to recover" ;;
+    task-changed)
+      changed=0
+      for f in "$out"/store/pd-*/receipt.json; do
+        [ -f "$f" ] || continue
+        [ "$("$helper" digest task --plan "$out/plan.md" --task 1.1 2>/dev/null)" != "$(jq -r .task.digest "$f")" ] && changed=1
+      done
+      [ "$changed" = 1 ] && has "task-changed: the task differs from the attempt's" || lacks task-changed "the task was not changed after the verdict" ;;
+    artifact-changed)
+      changed=0
+      while read -r id digest; do
+        [ -n "$id" ] && [ -f "$out/store/$id/receipt.json" ] &&
+          [ "$digest" != "$(jq -r .verdict.artifact_digest "$out/store/$id/receipt.json")" ] && changed=1
+      done <"$out/artifact-digests.txt"
+      [ "$changed" = 1 ] && has "artifact-changed: the tree differs from the accepted artifact" || lacks artifact-changed "the artifact was not changed after the verdict" ;;
+    detached-write)
+      grep -q ' src/late.txt$' "$out/journal" && has "detached-write: the detached descendant wrote" || lacks detached-write "the detached descendant never wrote" ;;
+    *) lacks "$need" "unknown requirement $need" ;;
+  esac
+done
 
 # 1. Every receipt satisfies the contract.
 for f in ${receipts[@]+"${receipts[@]}"}; do
@@ -63,6 +114,7 @@ esac
 # Every accepted verdict matches the final tree.
 while read -r id digest; do
   [ -n "$id" ] || continue
+  if [ ! -f "$out/store/$id/receipt.json" ]; then no "accepted digest recorded for $id, which has no receipt"; continue; fi
   want="$(jq -r .verdict.artifact_digest "$out/store/$id/receipt.json")"
   [ "$digest" = "$want" ] && ok "$id: accepted artifact matches the final tree" ||
     { [ "$GROUND_TRUTH" = must-not-project ] && ok "$id: accepted verdict is historical (tree changed), not projected" ||
@@ -110,5 +162,6 @@ if awk '
 else no "overlapping writers: $(cat "$out/.overlap")"; fi
 rm -f "$out/.overlap"
 
-[ "$bad" = 0 ] && echo "RESULT $scenario pass" || echo "RESULT $scenario FAIL"
-exit "$bad"
+if [ "$bad" != 0 ]; then echo "RESULT $scenario FAIL"; exit 1; fi
+if [ -n "$missing" ]; then echo "RESULT $scenario INCOMPLETE (missing:$missing)"; exit 2; fi
+echo "RESULT $scenario pass"

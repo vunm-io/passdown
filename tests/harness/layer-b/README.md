@@ -11,7 +11,7 @@ F1, F2, F11, F14a, F14b, F18 and F27 (§20.2, narrowed in #22).
 | `fixture.sh <dir> <scenario>` | Builds the scenario workspace: plan, `AGENTS.md` with an owner routing policy, and a card for the test executor (`../fake-executor` in the scenario's mode) |
 | `scenarios/<S>.sh` | Crash marker, ground truth and expected behavior of one scenario |
 | `run.sh <S> <out>` | Runs the host (`claude -p`), kills it at the crash marker, starts a new session for pickup, relays the owner's answers, then collects and judges |
-| `collect.sh`, `oracle.sh` | Copy the files after a run and judge them from files only, never from the transcript |
+| `collect.sh`, `oracle.sh` | Copy the files after a run and judge them. Safety is judged from files only. Each scenario also lists the evidence that it really ran (`REQUIRE`: host turn, worker, crash, pickup, accepted verdict, changed task or artifact, detached write). Missing evidence makes the run **incomplete** (exit 2), never a pass |
 
 ## Before running
 
@@ -35,7 +35,9 @@ you confirm. The script passes your words through verbatim, records them in
 The script then copies the files and prints the oracle's verdict
 (`oracle.txt`).
 
-Crash scenarios (F2, F11, F14a, F14b) kill the host at their marker, apply
+Crash scenarios (F2, F11, F14a, F14b) watch every host turn, including the
+ones after your answers (F14's verdict only comes after your attestation).
+They kill the host at their marker, apply
 the scenario's edit, and open a new session that runs pickup and
 reconciles. The worker the host launched keeps running across the crash,
 as it would in a real one.
