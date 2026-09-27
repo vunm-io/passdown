@@ -161,6 +161,8 @@ require_text_block "$dispatch" "requires that executor and names no fallback, +d
   "a rejected owner-mandated task is not finished by the host"
 require_text_block "$dispatch" "or its attempt was rejected" \
   "the owner route forbids relabeling a rejected task main"
+require_text_block "$dispatch" "any other +rejection already released it" \
+  "dispatch runs release-claim only when the rejection kept the claim"
 require_text_block "$dispatch" "always lists +\`owner-attested\`" \
   "dispatch branches on safe machine evidence, not on probe's owner-attested entry"
 require_text_block "$dispatch" "Never attest on the user's behalf" \

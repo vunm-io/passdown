@@ -422,8 +422,11 @@ otherwise.
     - Otherwise you may finish it yourself, but never by verifying the
       rejected attempt's leftover output in place. Take that output over
       only through salvage, for the reasons salvage allows, or give it up
-      first (`release-claim`, then *Cleanup after a failed attempt*) and do
-      the work in the open. Then append `- Dispatched: main (<YYYY-MM-DD>)
+      first and do the work in the open. Giving it up is `release-claim`
+      when the rejection kept the claim (`needs_input`, `blocked`,
+      `invalid_result`, `reemit_wrote`, `integration_failed`); any other
+      rejection already released it. Either way, then follow *Cleanup
+      after a failed attempt*. Then append `- Dispatched: main (<YYYY-MM-DD>)
       — accepted; verified: <check>` so the latest line matches the
       checkbox.
 17. `projected` — *(when accepted)* **Mark the projection.**
@@ -441,8 +444,8 @@ redirect `HOME`, add trust flags or switch executors silently to get past it.
 After the user fixes the environment, run a continuation.
 
 **Cleanup after a failed attempt.** Leave the leftover output in place while
-the claim holds it (see *Host writes*). When you give it up with
-`release-claim`, compare the location against the baseline and remove only
+the claim holds it (see *Host writes*). Once the claim is released, by
+`release-claim` or by a rejection that does not keep it, compare the location against the baseline and remove only
 paths proven to be created or changed by that attempt. Never run broad
 reset/clean commands and never discard pre-existing user changes. If
 attribution is ambiguous, stop and ask instead of cleaning or retrying.
