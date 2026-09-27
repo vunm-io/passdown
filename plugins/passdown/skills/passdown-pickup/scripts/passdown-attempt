@@ -16,7 +16,7 @@
 # shellcheck disable=SC2016,SC2015
 set -euo pipefail
 
-PASSDOWN_VERSION="0.5.0-beta.1"
+PASSDOWN_VERSION="0.5.0-beta.2"
 
 # jq >= 1.7 is required on Windows for its -b (binary output) flag.
 # Git Bash on Windows rewrites every argument that looks like a POSIX path

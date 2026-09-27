@@ -6,6 +6,24 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0-beta.2] - 2026-09-27
+
+Beta build for the `release/v0.5.0` testing window — not a GitHub release.
+
+### Fixed
+
+- Dispatch no longer lets a host line accept a rejected attempt's output.
+  Found by the Layer B release gate (scenario F1): after rejecting an
+  attempt `plan_tampered`, a real host verified the rejected worker's file
+  in place and recorded `Dispatched: main — accepted`, although the owner's
+  routing required that executor with no fallback. A rejected
+  owner-mandated task now stays pending for the owner; any other rejected
+  task is finished by the host only through salvage or after the output is
+  given up.
+- The Layer B runner ignores empty answers and ends only on `end`, warning
+  when an attempt is still pending, so a stray Enter cannot cut a run short
+  before the host acts on the owner's attestation.
+
 ## [0.5.0-beta.1] - 2026-09-21
 
 Beta build for the `release/v0.5.0` testing window — not a GitHub release.
@@ -284,6 +302,7 @@ Initial dogfooding snapshot.
   tags.
 
 [Unreleased]: https://github.com/vunm-io/passdown/compare/v0.4.0...HEAD
+[0.5.0-beta.2]: https://github.com/vunm-io/passdown/compare/v0.4.0...release/v0.5.0
 [0.5.0-beta.1]: https://github.com/vunm-io/passdown/compare/v0.4.0...release/v0.5.0
 [0.4.0]: https://github.com/vunm-io/passdown/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/vunm-io/passdown/compare/v0.2.0...v0.3.0
