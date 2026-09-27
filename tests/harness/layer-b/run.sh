@@ -10,7 +10,8 @@
 #    that runs pickup and reconciles.
 # 3. Show the owner each host reply and pass the owner's answer back
 #    verbatim (`claude -p --resume`). This script never answers for the
-#    owner and never records an attestation. An empty answer ends the run.
+#    owner and never records an attestation. Typing "end" ends the run;
+#    empty lines are ignored.
 # 4. Copy the files (collect.sh) and judge them (oracle.sh).
 #
 # Interactive: the owner answers on /dev/tty. Transcripts, the owner's
@@ -119,10 +120,23 @@ turn_() {
 turn_ "" "$DISPATCH_PROMPT"
 while :; do
   show
-  printf 'Answer the host as %s (empty line ends the run): ' "$operator"
+  # A stray Enter (or a paste that starts with a newline) must not end the
+  # run half-way, before the host has acted on the owner's attestation.
   answer=""
-  IFS= read -r answer </dev/tty || answer=""
-  [ -n "$answer" ] || break
+  while [ -z "$answer" ]; do
+    printf 'Answer the host as %s (type "end" to finish the run): ' "$operator"
+    IFS= read -r answer </dev/tty || answer=end
+  done
+  if [ "$answer" = end ]; then
+    # Ending while an attempt still waits for the owner judges a run the
+    # host never finished; make that a deliberate choice.
+    if jq -e -n '[inputs | select(.verdict.acceptance == "pending")] | length > 0' "$store"/pd-*/receipt.json >/dev/null 2>&1; then
+      printf 'An attempt is still pending (the host is waiting for you).\nType "end" again to finish anyway, or your answer to the host: '
+      answer=""
+      while [ -z "$answer" ]; do IFS= read -r answer </dev/tty || answer=end; done
+    fi
+    [ "$answer" != end ] || break
+  fi
   printf '[%s] %s\n' "$operator" "$answer" >>"$out/owner-answers.txt"
   turn_ "$session" "$answer"
 done
