@@ -147,7 +147,8 @@ current session  →  authorized native delegation  →  external executor (name
   the external tier directly; its reason code is `owner-policy`. A mandatory
   owner route takes precedence over "uncertainty routes to the current
   session": the host never relabels such a task `main` without the owner's
-  authorization (see *When the chosen executor is not eligible*).
+  authorization, whether its executor is ineligible (see *When the chosen
+  executor is not eligible*) or its attempt was rejected (step 16).
 - Availability alone never authorizes delegation. A configured `subagent` is
   not implicit authorization: if the user has not explicitly requested
   delegation, keep the task in `main` or ask first.
@@ -413,9 +414,18 @@ otherwise.
       `[ ]`. Render the reason (`needs input`, `blocked`, `verification
       failed`), never a bare "rejected".
     Record rejections too; the reason is exactly what the next shift needs.
-    If you then finish the task yourself, append `- Dispatched: main
-    (<YYYY-MM-DD>) — accepted; verified: <check>` so the latest line matches
-    the checkbox.
+    **A host line never accepts a rejected attempt's output.** After a
+    rejection the task stays `[ ]` until a separate decision:
+    - If the owner's route requires that executor and names no fallback,
+      do not finish the task yourself. Report the rejection and leave the
+      task pending for the owner.
+    - Otherwise you may finish it yourself, but never by verifying the
+      rejected attempt's leftover output in place. Take that output over
+      only through salvage, for the reasons salvage allows, or give it up
+      first (`release-claim`, then *Cleanup after a failed attempt*) and do
+      the work in the open. Then append `- Dispatched: main (<YYYY-MM-DD>)
+      — accepted; verified: <check>` so the latest line matches the
+      checkbox.
 17. `projected` — *(when accepted)* **Mark the projection.**
     `passdown-attempt projected <id> --rev <n> --plan <plan file>`. This
     resolves the attempt and releases its claim.
