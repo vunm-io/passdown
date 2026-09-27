@@ -31,7 +31,8 @@ The script shows each host reply and waits for your answer. When the host
 asks whether any process remains for an attempt, **check it yourself**
 (`pgrep -fl fake-executor`, and the process group the host names) before
 you confirm. The script passes your words through verbatim, records them in
-`owner-answers.txt`, and never answers for you. An empty line ends the run.
+`owner-answers.txt`, and never answers for you. Type `end` to finish the
+run; empty lines are ignored, so a stray Enter cannot cut a run short.
 The script then copies the files and prints the oracle's verdict
 (`oracle.txt`).
 
