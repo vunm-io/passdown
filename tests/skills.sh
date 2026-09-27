@@ -155,6 +155,12 @@ require_text_block "$dispatch" "do not +launch it and do not do the task yoursel
   "an owner-mandated task whose executor is ineligible is neither launched nor done by the host"
 require_text_block "$dispatch" "A mandatory +owner route takes precedence" \
   "a mandatory owner route outranks routing uncertain work to the current session"
+require_text_block "$dispatch" "A host line never accepts a rejected attempt's output" \
+  "a host line cannot accept the output of a rejected attempt (Layer B F1)"
+require_text_block "$dispatch" "requires that executor and names no fallback, +do not finish the task yourself" \
+  "a rejected owner-mandated task is not finished by the host"
+require_text_block "$dispatch" "or its attempt was rejected" \
+  "the owner route forbids relabeling a rejected task main"
 require_text_block "$dispatch" "always lists +\`owner-attested\`" \
   "dispatch branches on safe machine evidence, not on probe's owner-attested entry"
 require_text_block "$dispatch" "Never attest on the user's behalf" \
