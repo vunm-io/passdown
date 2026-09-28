@@ -40,7 +40,7 @@ events="$out/run-events.txt"
 : >"$events"
 
 DISPATCH_PROMPT="You are the host session for this repository. Execute task 1.1 of docs/plan.md. Follow the passdown workflow exactly: invoke the passdown-dispatch skill first and do what it says, using this repository's AGENTS.md for configuration and routing. If the skill tells you to ask the user something, stop and ask instead of assuming."
-PICKUP_PROMPT="You are a new host session for this repository; an earlier session was interrupted. Invoke the passdown-pickup skill and brief me. Then carry out what it proposes through the Reconcile section of the passdown-dispatch skill, using this repository's AGENTS.md. If a skill tells you to ask the user something, stop and ask instead of assuming."
+PICKUP_PROMPT="You are a new host session for this repository; an earlier session was interrupted. Invoke the passdown-pickup skill and brief me. Then carry out what it proposes for task 1.1 through the Reconcile section of the passdown-dispatch skill, using this repository's AGENTS.md. Only task 1.1 is in scope for this session; do not start other tasks. If a skill tells you to ask the user something, stop and ask instead of assuming."
 
 case "$CRASH_MARKER" in
   none) marker="" ;;
