@@ -6,6 +6,25 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0-beta.3] - 2026-09-28
+
+Beta build for the `release/v0.5.0` testing window — not a GitHub release.
+
+### Fixed
+
+- The attempt helper refuses to accept an attempt whose plan edit was
+  restored. Found by the Layer B release gate (scenario F2): after a crash,
+  a real host restored the worker's forged `[x]` and `Dispatched:` line,
+  re-inspected, and accepted with `--scope-override`, following a hint in
+  the helper's own refusal message. Each inspection now records
+  `plan_touched` (a new optional member of the receipt's inspection
+  entries), an accept after a restore is refused, and the refusal message
+  no longer suggests restoring and overriding. The dispatch skill states
+  that a plan change seen while the verdict is pending is never the
+  host's own.
+- The Layer B pickup session is limited to task 1.1, so the oracle's
+  final-tree check is not confused by unrelated host work.
+
 ## [0.5.0-beta.2] - 2026-09-27
 
 Beta build for the `release/v0.5.0` testing window — not a GitHub release.
@@ -302,6 +321,7 @@ Initial dogfooding snapshot.
   tags.
 
 [Unreleased]: https://github.com/vunm-io/passdown/compare/v0.4.0...HEAD
+[0.5.0-beta.3]: https://github.com/vunm-io/passdown/compare/v0.4.0...release/v0.5.0
 [0.5.0-beta.2]: https://github.com/vunm-io/passdown/compare/v0.4.0...release/v0.5.0
 [0.5.0-beta.1]: https://github.com/vunm-io/passdown/compare/v0.4.0...release/v0.5.0
 [0.4.0]: https://github.com/vunm-io/passdown/compare/v0.3.0...v0.4.0
