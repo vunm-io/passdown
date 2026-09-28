@@ -163,6 +163,10 @@ require_text_block "$dispatch" "or its attempt was rejected" \
   "the owner route forbids relabeling a rejected task main"
 require_text_block "$dispatch" "any other +rejection already released it" \
   "dispatch runs release-claim only when the rejection kept the claim"
+require_text_block "$dispatch" "A plan change seen while the verdict is pending is +never the host's own" \
+  "a plan change before the verdict is never attributed to the host (Layer B F2)"
+require_text_block "$dispatch" "Restoring the +plan is always followed by +\`plan_tampered\`, never by an accept" \
+  "restoring the plan leads to plan_tampered, never to an accept"
 require_text_block "$dispatch" "always lists +\`owner-attested\`" \
   "dispatch branches on safe machine evidence, not on probe's owner-attested entry"
 require_text_block "$dispatch" "Never attest on the user's behalf" \

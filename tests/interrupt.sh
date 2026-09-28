@@ -214,6 +214,29 @@ F2() {
   pass "forged accepted + [x] then a host crash: pickup counts nothing accepted (unresolved attempt)"
 }
 
+F2d() {
+  local a code=0
+  setup F2d
+  REF_ATTEST=owner REF_CRASH_AT=after-result host dispatch --mode forge-accepted
+  crashed || fail "host did not crash"
+  a="$(attempt_of)"
+  # What the Layer B F2 host did after the crash: inspect, restore the
+  # forged plan lines, re-inspect, then accept with an override that blamed
+  # an interrupted host session.
+  H inspect "$a" --rev "$(rev "$a")" >/dev/null || fail "inspect"
+  [ "$(field "$a" .artifact.plan_touched)" = true ] || fail "the forged plan lines were not seen"
+  git -C "$repo" checkout -q docs/plan.md
+  H inspect "$a" --rev "$(rev "$a")" >/dev/null || fail "re-inspect"
+  printf 'ok\n' >"$scratch/F2d/check.txt"
+  H verdict "$a" accept --rev "$(rev "$a")" --check "grep -q hello src/hello.txt=0:$scratch/F2d/check.txt" \
+    --scope-override "plan change attributable to an interrupted host session" >/dev/null 2>&1 || code=$?
+  [ "$code" = 3 ] || fail "accept after restoring the plan: exit $code"
+  host finish --id "$a"
+  [ "$(outcome_of)" = rejected:plan_tampered ] || fail "finish: $(outcome_of)"
+  oracle
+  pass "a forged plan restored after a crash is still rejected plan_tampered; an override cannot accept it"
+}
+
 F2c() {
   local a
   setup F2c
@@ -949,7 +972,7 @@ mutation() {
   pass "with the claim check stubbed out, F11, F15, F19b and F22 all fail (the suite detects the missing guard)"
 }
 
-all="F1 F2 F2b F2c F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F16b F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS PICKUP HANDOFF mutation"
+all="F1 F2 F2b F2c F2d F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F14c F14d F15 F16 F16b F17 F18 F18b F19 F19b F20 F21 F22 F23 F24 F25 F26 STEPS PICKUP HANDOFF mutation"
 [ "$#" -gt 0 ] || read -r -a all_list <<<"$all"
 [ "$#" -gt 0 ] || set -- "${all_list[@]}"
 for s in "$@"; do

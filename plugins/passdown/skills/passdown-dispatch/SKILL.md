@@ -384,7 +384,12 @@ otherwise.
       `plan_tampered`. If you cannot attribute the change safely (the user or
       another session may have edited the plan meanwhile), do not overwrite it
       and do not record a verdict: stop and report the conflict so the user
-      can reconcile it;
+      can reconcile it. **A plan change seen while the verdict is pending is
+      never the host's own,** not even an interrupted earlier session's: the
+      host edits the plan only at step 16, after the verdict. Restoring the
+      plan is always followed by `plan_tampered`, never by an accept (the
+      helper refuses one). `--scope-override` records only a plan change the
+      owner made and keeps, on the owner's word;
     - `out_of_scope` not empty → reject `scope_violation`;
     - otherwise run every verification command the task names yourself,
       saving each command's output to a file. Every one must exit `0`; if any
