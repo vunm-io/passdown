@@ -365,6 +365,40 @@ group_acceptance() {
   ok "reject plan_tampered" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code plan_tampered --reason "ticked its own box"
   pass "a restored worker plan edit is rejected plan_tampered, never accepted (Layer B F2)"
 
+  # The same guard across the beta.2 -> beta.3 upgrade: a beta.2 helper kept
+  # plan_touched only in artifact.plan_touched (its inspection entries have
+  # no plan_touched) and in inspect.json. strip_history makes a receipt look
+  # like one it wrote.
+  strip_history() { jq '.artifact.inspections |= map(del(.plan_touched))' "$store/$1/receipt.json" >"$scratch/r.json" &&
+    mv "$scratch/r.json" "$store/$1/receipt.json"; }
+  # (a) one beta.2 inspection saw the plan touched; beta.3 restores and re-inspects.
+  git -C "$repo" checkout -q docs/plan.md
+  rm -f "$repo/src/hello.txt"
+  new_write "$repo"
+  drive "$id" "perl -pi -e 's/- \\[ \\] 1.1/- [x] 1.1/' '$repo/docs/plan.md'; echo hello > '$repo/src/hello.txt'"
+  ok "result" --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
+  ok "inspect (beta.2)" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  strip_history "$id"
+  rm "$store/$id/inspect.json"
+  git -C "$repo" checkout -q docs/plan.md
+  ok "re-inspect after restore (beta.3)" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  [ "$(field "$id" '.artifact.inspections[0].plan_touched')" = true ] || fail "the beta.2 evidence was not carried onto its entry"
+  run 3 "accept a restored beta.2 plan edit" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  ok "reject plan_tampered" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code plan_tampered --reason "ticked its own box"
+  # (b) beta.2 already restored and re-inspected; only inspect.json remembers.
+  git -C "$repo" checkout -q docs/plan.md
+  rm -f "$repo/src/hello.txt"
+  new_write "$repo"
+  drive "$id" "perl -pi -e 's/- \\[ \\] 1.1/- [x] 1.1/' '$repo/docs/plan.md'; echo hello > '$repo/src/hello.txt'"
+  ok "result" --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
+  ok "inspect (beta.2)" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  git -C "$repo" checkout -q docs/plan.md
+  ok "re-inspect after restore (beta.2)" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  strip_history "$id"
+  run 3 "accept after a restore made under beta.2" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  ok "reject plan_tampered" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code plan_tampered --reason "ticked its own box"
+  pass "a plan edit a beta.2 helper inspected still blocks the accept after an upgrade"
+
   # An edit to the attempt's own task text is not plan_touched: the task
   # digest goes stale instead, whoever made the edit (F3, F6).
   git -C "$repo" checkout -q docs/plan.md

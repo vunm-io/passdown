@@ -19,7 +19,10 @@ Beta build for the `release/v0.5.0` testing window — not a GitHub release.
   the helper's own refusal message. Each inspection now records
   `plan_touched` (a new optional member of the receipt's inspection
   entries), an accept after a restore is refused, and the refusal message
-  no longer suggests restoring and overriding. The dispatch skill states
+  no longer suggests restoring and overriding. A receipt inspected by a
+  beta.2 helper keeps its evidence across the upgrade: the helper carries
+  the earlier `plan_touched` onto its entry and also reads `inspect.json`.
+  The dispatch skill states
   that a plan change seen while the verdict is pending is never the
   host's own.
 - The Layer B pickup session is limited to task 1.1, so the oracle's
