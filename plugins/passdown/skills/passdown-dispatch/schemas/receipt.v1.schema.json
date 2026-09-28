@@ -313,7 +313,8 @@
             "additionalProperties": false,
             "properties": {
               "at": { "$ref": "#/$defs/timestamp" },
-              "digest": { "$ref": "#/$defs/digest" }
+              "digest": { "$ref": "#/$defs/digest" },
+              "plan_touched": { "type": "boolean" }
             }
           }
         },

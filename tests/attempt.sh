@@ -345,6 +345,26 @@ group_acceptance() {
   [ "$(field "$id" .claim.state)" = released ] || fail "plan_tampered is not claim-holding"
   pass "a worker checkbox edit sets plan_touched and is rejected (F1)"
 
+  # Restoring the worker's plan edit never earns an accept, with or without
+  # --scope-override (Layer B F2: a real host restored the plan, re-inspected
+  # and accepted with an override blaming an interrupted host session).
+  git -C "$repo" checkout -q docs/plan.md
+  rm -f "$repo/src/hello.txt"
+  new_write "$repo"
+  drive "$id" "perl -pi -e 's/- \\[ \\] 1.1/- [x] 1.1/' '$repo/docs/plan.md'; echo hello > '$repo/src/hello.txt'"
+  ok "result" --store "$store" result "$id" --rev "$(rev "$id")" --payload "$(result_payload "$id" submitted)"
+  ok "inspect" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  [ "$(field "$id" '.artifact.inspections[-1].plan_touched')" = true ] || fail "the inspection does not record plan_touched"
+  git -C "$repo" checkout -q docs/plan.md
+  ok "re-inspect after restore" --store "$store" inspect "$id" --rev "$(rev "$id")"
+  [ "$(field "$id" .artifact.plan_touched)" = false ] || fail "restored plan still touched"
+  run 3 "accept after restoring the plan" --store "$store" verdict "$id" accept --rev "$(rev "$id")" --check "t=0:$check_ok"
+  printf '%s' "$err" | grep -q plan_tampered || fail "refusal does not name plan_tampered: $err"
+  run 3 "accept after restoring the plan, with an override" --store "$store" verdict "$id" accept --rev "$(rev "$id")" \
+    --check "t=0:$check_ok" --scope-override "plan change attributable to an interrupted host session"
+  ok "reject plan_tampered" --store "$store" verdict "$id" reject --rev "$(rev "$id")" --reason-code plan_tampered --reason "ticked its own box"
+  pass "a restored worker plan edit is rejected plan_tampered, never accepted (Layer B F2)"
+
   # An edit to the attempt's own task text is not plan_touched: the task
   # digest goes stale instead, whoever made the edit (F3, F6).
   git -C "$repo" checkout -q docs/plan.md

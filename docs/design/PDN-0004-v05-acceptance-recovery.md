@@ -1178,10 +1178,14 @@ The helper refuses unless **all** hold:
    `settle_seconds > 0`, `inspect` must also have run twice, at least that far
    apart, with equal digests. This is **artifact-stability** evidence. It is
    required in addition to safe stop evidence and never replaces it (§8.3).
-5. `artifact.out_of_scope` is empty and `plan_touched` is false — or the host
-   has already restored the plan per the PDN-0003 rule and re-run `inspect`,
-   and the verdict carries the `--scope-override <reason>` flag, which is
-   recorded. (Default: reject `scope_violation` / `plan_tampered`.)
+5. `artifact.out_of_scope` is empty and `plan_touched` is false — or the
+   verdict carries the `--scope-override <reason>` flag, which is recorded.
+   (Default: reject `scope_violation` / `plan_tampered`.) *Revised in S7
+   (Layer B F2):* restoring the plan never earns an accept. Each inspection
+   records `plan_touched`, and the helper refuses an accept once any
+   inspection saw the plan touched and the latest no longer does; the host
+   edits the plan only after the verdict, so that edit was the worker's.
+   The override records only a plan change the owner made and keeps.
 6. At least one `--check`, **every** `--check` with exit code 0, each with
    its output file in `checks/`. (Refined in S4: r3 said "at least one whose
    exit code is 0", which accepted a passing lint next to a failing test.)
@@ -2190,6 +2194,22 @@ ships it.
   The narrowed gate keeps this to six scenarios.
 - Independent merge: this is the release PR (`release/v0.5.0` → `main`).
 - Rollback: do not merge; `main` stays at v0.4.x.
+
+**Implementation notes (S7).** Layer B found two protocol gaps on the real
+host, each fixed before the gate reran:
+
+- *F1, beta.1.* After rejecting an attempt `plan_tampered`, the host
+  verified the rejected worker's file in place and appended `Dispatched:
+  main — accepted`, although the owner's route named no fallback. Step 16
+  now says a host line never accepts a rejected attempt's output: an
+  owner-mandated task stays pending, and any other task is finished only
+  through salvage or after the output is given up.
+- *F2, beta.2.* After a crash, the pickup host restored the worker's forged
+  plan lines, re-inspected, and accepted with `--scope-override`, blaming
+  "an interrupted host session". The helper's own refusal message had
+  suggested restoring and overriding. Rule 5 of §12.3 is revised above; the
+  helper enforces it, and the skill states that a plan change seen while
+  the verdict is pending is never the host's.
 
 ## 27. Open questions
 

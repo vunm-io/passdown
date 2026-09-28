@@ -1705,7 +1705,7 @@ cmd_inspect() {
     | .artifact.digest = $a.digest | .artifact.changed = $a.changed
     | .artifact.out_of_scope = $a.out_of_scope | .artifact.overlaps_baseline = $a.overlaps_baseline
     | .artifact.plan_touched = $a.plan_touched
-    | .artifact.inspections += [{at: $now, digest: $a.digest}]
+    | .artifact.inspections += [{at: $now, digest: $a.digest, plan_touched: $a.plan_touched}]
     | if .claim == null then .artifact.target_after = $a.digest else . end' --argjson a "$art"
   if [ "$JSON_OUT" = 1 ]; then
     jq -c --slurpfile r "$STORE/$id/receipt.json" '{id: $r[0].id, rev: $r[0].rev} + (. | del(.entries)) + {paths: [.entries[].path]}' <<<"$art"
@@ -1835,9 +1835,14 @@ verdict_accept() {
       and (($i[-1].at | fromdateiso8601) - ($i[-2].at | fromdateiso8601)) >= $s' <<<"$r" >/dev/null ||
       die $E_STATE "accept: the card asks for two equal inspections at least ${settle}s apart (artifact stability)"
   fi
-  # 5. scope and plan
+  # 5. scope and plan. The host edits the plan only after the verdict, so a
+  # plan change an inspection saw belongs to the worker (or to the owner).
+  # Restoring it undoes the worker's edit; it never earns an accept.
+  if jq -e '.artifact.plan_touched == false and any(.artifact.inspections[]; .plan_touched == true)' <<<"$r" >/dev/null; then
+    die $E_STATE "accept: an earlier inspection saw the plan touched and it has since been restored; the host edits the plan only after the verdict, so that edit was the worker's: reject plan_tampered"
+  fi
   if [ "$(jq -r '(.artifact.out_of_scope | length) > 0 or .artifact.plan_touched' <<<"$r")" = true ] && [ -z "$override" ]; then
-    die $E_STATE "accept: out-of-scope paths $(jq -c .artifact.out_of_scope <<<"$r") / plan touched $(jq -r .artifact.plan_touched <<<"$r"); reject scope_violation/plan_tampered, or restore, re-inspect and pass --scope-override"
+    die $E_STATE "accept: out-of-scope paths $(jq -c .artifact.out_of_scope <<<"$r") / plan touched $(jq -r .artifact.plan_touched <<<"$r"); reject scope_violation/plan_tampered (--scope-override only records a change the owner made and keeps, on the owner's word)"
   fi
   # 6. at least one host check, and every one of them passed
   [ "$#" -gt 0 ] || die $E_STATE "accept: at least one --check is required (I-10)"

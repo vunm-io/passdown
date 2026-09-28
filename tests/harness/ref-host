@@ -186,9 +186,10 @@ decide() {
     reject "$id" reemit_wrote "the re-emit changed the chain artifact"
     return
   fi
-  if [ "$(field "$id" .artifact.plan_touched)" = true ]; then
+  if [ "$(field "$id" '.artifact.plan_touched or any(.artifact.inspections[]; .plan_touched == true)')" = true ]; then
     # PDN-0003: restore the worker's plan edit (the plan was clean at the
-    # baseline in this fixture), then reject.
+    # baseline in this fixture), then reject. An inspection that saw the
+    # plan touched counts even if the plan was restored since.
     git -C "$repo" checkout -q -- "$plan_rel"
     reject "$id" plan_tampered "the worker edited the plan"
     return
