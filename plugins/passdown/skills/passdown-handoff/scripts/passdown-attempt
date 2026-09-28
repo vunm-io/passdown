@@ -1700,8 +1700,14 @@ cmd_inspect() {
   else
     jq -c -n --argjson rec "$record" '[$rec]' | write_atomic "$STORE/$id/inspect.json"
   fi
+  # A receipt written before inspections carried plan_touched (beta.2) keeps
+  # that evidence only in artifact.plan_touched, the latest inspection's
+  # value: move it onto that entry before this inspection overwrites it.
   mutate "$id" "$REV" inspect '
-    .execution.reconciled_at = (.execution.reconciled_at // $now)
+    .artifact.plan_touched as $prev
+    | .artifact.inspections |= (if length > 0 and (.[-1] | has("plan_touched") | not) and $prev != null
+        then .[-1].plan_touched = $prev else . end)
+    | .execution.reconciled_at = (.execution.reconciled_at // $now)
     | .artifact.digest = $a.digest | .artifact.changed = $a.changed
     | .artifact.out_of_scope = $a.out_of_scope | .artifact.overlaps_baseline = $a.overlaps_baseline
     | .artifact.plan_touched = $a.plan_touched
@@ -1838,7 +1844,12 @@ verdict_accept() {
   # 5. scope and plan. The host edits the plan only after the verdict, so a
   # plan change an inspection saw belongs to the worker (or to the owner).
   # Restoring it undoes the worker's edit; it never earns an accept.
-  if jq -e '.artifact.plan_touched == false and any(.artifact.inspections[]; .plan_touched == true)' <<<"$r" >/dev/null; then
+  # inspect.json holds every inspection's full record, including those a
+  # beta.2 helper made before the receipt's entries carried plan_touched.
+  local seen=false
+  if jq -e 'any(.artifact.inspections[]; .plan_touched == true)' <<<"$r" >/dev/null; then seen=true
+  elif [ -f "$STORE/$id/inspect.json" ] && jq -e 'any(.[]; .plan_touched == true)' "$STORE/$id/inspect.json" >/dev/null 2>&1; then seen=true; fi
+  if [ "$seen" = true ] && [ "$(jq -r .artifact.plan_touched <<<"$r")" = false ]; then
     die $E_STATE "accept: an earlier inspection saw the plan touched and it has since been restored; the host edits the plan only after the verdict, so that edit was the worker's: reject plan_tampered"
   fi
   if [ "$(jq -r '(.artifact.out_of_scope | length) > 0 or .artifact.plan_touched' <<<"$r")" = true ] && [ -z "$override" ]; then
