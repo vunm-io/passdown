@@ -1,0 +1,6 @@
+crash after-result 01
+turn 01
+turn 02
+pickup 02
+turn 03
+turn 04

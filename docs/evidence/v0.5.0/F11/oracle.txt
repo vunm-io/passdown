@@ -1,0 +1,11 @@
+EVIDENCE host: 3 completed host turn(s)
+EVIDENCE crash: host killed at after-arm
+EVIDENCE pickup: a new session ran after the crash
+PASS receipt pd-20260928T162825Z-654f6346 is valid
+PASS receipt pd-20260928T164421Z-8b87d095 is valid
+PASS tick backed by a projected receipt
+PASS pd-20260928T164421Z-8b87d095: accepted artifact matches the final tree
+PASS no unsafe stop evidence
+PASS pd-20260928T164421Z-8b87d095 started after the earlier attempt stopped
+PASS no overlapping writers
+RESULT F11 pass

@@ -1,0 +1,12 @@
+{
+  "schema": "passdown.claim/v1",
+  "key": "repo",
+  "holder": "pd-20260926T173842Z-0c67dcab",
+  "store": "/fixture/.git/passdown/attempts",
+  "profile": null,
+  "location": "/fixture",
+  "acquired_at": "2026-09-26T17:38:41Z",
+  "history": [],
+  "released_at": "2026-09-26T18:33:02Z",
+  "release_basis": "resolved"
+}

@@ -1,0 +1,7 @@
+turn 01
+crash after-verdict 02
+turn 02
+after_crash
+turn 03
+pickup 03
+turn 04

@@ -1,0 +1,3 @@
+src/base.txt
+src/hello.txt
+src/more.txt

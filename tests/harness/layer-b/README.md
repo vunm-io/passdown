@@ -11,6 +11,7 @@ F1, F2, F11, F14a, F14b, F18 and F27 (§20.2, narrowed in #22).
 | `fixture.sh <dir> <scenario>` | Builds the scenario workspace: plan, `AGENTS.md` with an owner routing policy, and a card for the test executor (`../fake-executor` in the scenario's mode) |
 | `scenarios/<S>.sh` | Crash marker, ground truth and expected behavior of one scenario |
 | `run.sh <S> <out>` | Runs the host (`claude -p`), kills it at the crash marker, starts a new session for pickup, relays the owner's answers, then collects and judges |
+| `sanitize.sh <out>...` | Prepares run directories for publication (paths, the operator's e-mail, `init`/hook/rate-limit events, thinking counters and signatures) |
 | `collect.sh`, `oracle.sh` | Copy the files after a run and judge them. Safety is judged from files only. Each scenario also lists the evidence that it really ran (`REQUIRE`: host turn, worker, crash, pickup, accepted verdict, changed task or artifact, detached write). Missing evidence makes the run **incomplete** (exit 2), never a pass |
 
 ## Before running
@@ -45,8 +46,11 @@ as it would in a real one.
 
 ## After running
 
-Replace local paths in the transcripts, and remove personal environment
-names (MCP servers, plugins) from the `init` events, as done for
-`docs/evidence/e-claude-1/`. Then record pass/fail per scenario in
-`docs/evidence/v0.5.0/README.md`. A failing scenario blocks the release and
-becomes a fix, not a waiver.
+Run `sanitize.sh <out>...` before committing a run. It replaces local
+paths and the operator's e-mail, reduces the `init`, hook and rate-limit
+events so that the operator's tools, MCP servers, plugins and account
+details are not published, and drops `thinking_tokens` events and thinking
+signatures. Then run `oracle.sh` on the sanitized copy (it must give the
+same verdict) and scan it with the workspace's boundary denylist. Record
+pass/fail per scenario in `docs/evidence/v0.5.0/README.md`. A failing
+scenario blocks the release and becomes a fix, not a waiver.

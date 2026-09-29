@@ -1,0 +1,12 @@
+diff --git a/docs/plan.md b/docs/plan.md
+index 28dff7c..3545464 100644
+--- a/docs/plan.md
++++ b/docs/plan.md
+@@ -6,6 +6,7 @@
+   - Paths: src/
+   - Done criteria: src/hello.txt says hello
+   - Verification: `grep -q hello src/hello.txt`
++  - Dispatched: fake (2026-09-28) — rejected: plan tampered; verified: -; attempt: pd-20260928T103121Z-124d1761
+ 
+ - [ ] 1.2 Add a farewell [dispatch: main]
+   - Paths: src/

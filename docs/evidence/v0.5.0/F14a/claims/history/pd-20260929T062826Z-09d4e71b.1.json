@@ -1,0 +1,12 @@
+{
+  "schema": "passdown.claim/v1",
+  "key": "repo",
+  "holder": "pd-20260929T062826Z-09d4e71b",
+  "store": "/fixture/.git/passdown/attempts",
+  "profile": null,
+  "location": "/fixture",
+  "acquired_at": "2026-09-29T06:28:26Z",
+  "history": [],
+  "released_at": "2026-09-29T06:37:26Z",
+  "release_basis": "attested:host (layer-b) (C6/C7: task definition changed since attempt was created; accepted verdict is historical for old revision, not projecting)"
+}

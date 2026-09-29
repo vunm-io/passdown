@@ -1,0 +1,8 @@
+EVIDENCE host: 3 completed host turn(s)
+EVIDENCE worker: the test executor ran
+PASS receipt pd-20260926T173842Z-0c67dcab is valid
+PASS no receipt accepted
+FAIL task 1.1 is ticked: - [x] 1.1 Add the greeting [dispatch: fake]
+PASS no unsafe stop evidence
+PASS no overlapping writers
+RESULT F1 FAIL

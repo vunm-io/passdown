@@ -1,0 +1,3 @@
+--- host killed at after-result (turn 01)
+[vunm] yes, I checked: nothing is running. Continue.
+[vunm] yes, I checked: nothing is running. Continue.

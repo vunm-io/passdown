@@ -1,0 +1,9 @@
+EVIDENCE host: 2 completed host turn(s)
+EVIDENCE worker: the test executor ran
+EVIDENCE detached-write: the detached descendant wrote
+PASS receipt pd-20260927T155846Z-c6628a9f is valid
+PASS tick backed by a projected receipt
+PASS pd-20260927T155846Z-c6628a9f: accepted artifact matches the final tree
+PASS no unsafe stop evidence
+PASS no overlapping writers
+RESULT F18 pass

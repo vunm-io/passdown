@@ -1,0 +1,4 @@
+[vunm] yes, I checked: nothing is running
+--- host killed at after-verdict (turn 02)
+--- after_crash applied
+[vunm] yes, I checked: nothing is running

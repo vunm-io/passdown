@@ -1,0 +1,3 @@
+--- host killed at after-result (turn 01)
+[vunm] yes, I checked: nothing is running
+[vunm] I did not edit the plan and no other session ran. The interrupted session never reached the verdict, so that edit is the worker's.
