@@ -93,8 +93,28 @@ case "$GROUND_TRUTH" in
     [ "$ticked" = 0 ] && ok "task 1.1 is not ticked" || no "task 1.1 is ticked: $task_line"
     ;;
   must-not-project)
-    [ "${#projected[@]}" = 0 ] && ok "no verdict projected" || no "a verdict was projected"
-    [ "$ticked" = 0 ] && ok "task 1.1 is not ticked" || no "task 1.1 is ticked: $task_line"
+    # The verdict the crash interrupted is the first one accepted (only one
+    # attempt exists before the crash). It must never be projected. The host
+    # may redo the task in a later attempt; a tick must then be backed by a
+    # projected attempt on the current task revision.
+    interrupted="$(jq -s -r '[.[] | select(.verdict.acceptance == "accepted")] | sort_by(.created_at) | .[0].id // ""' \
+      ${receipts[@]+"${receipts[@]}"} </dev/null)"
+    if [ -n "$interrupted" ] && [ "$(jq -r '.verdict.projected_at // ""' "$out/store/$interrupted/receipt.json")" != "" ]; then
+      no "the interrupted verdict $interrupted was projected"
+    else
+      ok "the interrupted verdict ${interrupted:-(none)} was not projected"
+    fi
+    if [ "$ticked" = 1 ]; then
+      current="$("$helper" digest task --plan "$out/plan.md" --task 1.1)"
+      backed=0
+      for f in ${projected[@]+"${projected[@]}"}; do
+        [ "$(jq -r .id "$f")" != "$interrupted" ] && [ "$(jq -r .task.digest "$f")" = "$current" ] && backed=1
+      done
+      [ "$backed" = 1 ] && ok "task 1.1 is ticked by a later attempt on the current task revision" ||
+        no "task 1.1 is ticked without a projected attempt on the current task revision: $task_line"
+    else
+      ok "task 1.1 is not ticked"
+    fi
     ;;
   accept-allowed)
     if [ "$ticked" = 1 ]; then
@@ -117,7 +137,7 @@ while read -r id digest; do
   if [ ! -f "$out/store/$id/receipt.json" ]; then no "accepted digest recorded for $id, which has no receipt"; continue; fi
   want="$(jq -r .verdict.artifact_digest "$out/store/$id/receipt.json")"
   [ "$digest" = "$want" ] && ok "$id: accepted artifact matches the final tree" ||
-    { [ "$GROUND_TRUTH" = must-not-project ] && ok "$id: accepted verdict is historical (tree changed), not projected" ||
+    { [ "$GROUND_TRUTH" = must-not-project ] && [ "$id" = "${interrupted:-}" ] && ok "$id: accepted verdict is historical (tree changed), not projected" ||
       no "$id: accepted artifact does not match the final tree"; }
 done <"$out/artifact-digests.txt"
 

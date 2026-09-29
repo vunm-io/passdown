@@ -1,0 +1,8 @@
+EVIDENCE host: 1 completed host turn(s)
+PASS no attempt was created
+PASS task 1.1 is not ticked
+PASS no Dispatched line
+PASS task 1.1 was not done by anyone
+PASS no unsafe stop evidence
+PASS no overlapping writers
+RESULT F27 pass

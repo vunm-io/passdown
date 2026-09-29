@@ -1,0 +1,262 @@
+{
+  "schema": "passdown.receipt/v1",
+  "id": "pd-20260928T164421Z-8b87d095",
+  "rev": 11,
+  "kind": "write",
+  "continues": null,
+  "chain_root": "pd-20260928T164421Z-8b87d095",
+  "created_at": "2026-09-28T16:44:21Z",
+  "task": {
+    "ref": "docs/plan.md#1.1",
+    "planner_repo": "/fixture",
+    "digest": "sha256:654b745e4842870e6bf2e7626a0c59a90eafe2fbef7636068fa0a0e6d75e69d0",
+    "inputs": [],
+    "paths": [
+      "src/"
+    ]
+  },
+  "host": {
+    "agent": "claude-sonnet-4-6",
+    "session": null,
+    "passdown_version": "0.5.0-beta.3"
+  },
+  "route": {
+    "tier": "external",
+    "reason_code": "owner-policy",
+    "reason": "Owner policy mandates task 1.1 runs on the fake executor; no fallback."
+  },
+  "executor": {
+    "name": "fake",
+    "card": "fake@1",
+    "version": "0.0.0",
+    "engine": null,
+    "invocation_digest": null
+  },
+  "place": {
+    "repo": "/fixture",
+    "base_ref": "HEAD",
+    "base_commit": "f1fff45e771bde881e0ff035f04ec96d8665d7e1",
+    "isolation": "current-checkout",
+    "profile": null,
+    "location": "/fixture",
+    "mutation_guard": null
+  },
+  "handle": {
+    "pid": 66008,
+    "pid_started": "Mon Sep 28 23:47:17 2026",
+    "pgid": 66006,
+    "provider_session": null,
+    "runner": null,
+    "containment": "pgroup",
+    "scope": null,
+    "parent_exited_at": "2026-09-28T16:48:04Z"
+  },
+  "claim": {
+    "namespace": "/fixture/.git/passdown/claims",
+    "key": "repo",
+    "state": "released",
+    "acquired_at": "2026-09-28T16:44:21Z",
+    "transferred_to": null,
+    "released_at": "2026-09-28T16:52:15Z",
+    "release_basis": "resolved"
+  },
+  "execution": {
+    "observation": "stopped",
+    "observed_at": "2026-09-28T16:51:29Z",
+    "stop_evidence": "owner-attested",
+    "attested_by": "user",
+    "exit": {
+      "code": 0,
+      "signal": null
+    },
+    "cancel_requested_at": null,
+    "cancel_method": null,
+    "reconciled_at": "2026-09-28T16:51:35Z"
+  },
+  "result": {
+    "ref": "result.json",
+    "disposition": "submitted",
+    "status": "valid",
+    "diagnostics": [],
+    "source": null
+  },
+  "artifact": {
+    "at_arm": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "digest": "sha256:b6a41dd7d83fe7025def3842aa239c8f2ecaedd6cdc0215f8e72ccf8109dbd7d",
+    "expected": null,
+    "changed": 2,
+    "out_of_scope": [],
+    "overlaps_baseline": [],
+    "plan_touched": false,
+    "inspections": [
+      {
+        "at": "2026-09-28T16:51:35Z",
+        "digest": "sha256:b6a41dd7d83fe7025def3842aa239c8f2ecaedd6cdc0215f8e72ccf8109dbd7d",
+        "plan_touched": false
+      },
+      {
+        "at": "2026-09-28T16:51:36Z",
+        "digest": "sha256:b6a41dd7d83fe7025def3842aa239c8f2ecaedd6cdc0215f8e72ccf8109dbd7d",
+        "plan_touched": false
+      }
+    ],
+    "target_at_arm": null,
+    "target_after": null
+  },
+  "verdict": {
+    "acceptance": "accepted",
+    "reason_code": null,
+    "reason": null,
+    "task_digest": "sha256:654b745e4842870e6bf2e7626a0c59a90eafe2fbef7636068fa0a0e6d75e69d0",
+    "artifact_digest": "sha256:b6a41dd7d83fe7025def3842aa239c8f2ecaedd6cdc0215f8e72ccf8109dbd7d",
+    "checks": [
+      {
+        "name": "grep -q hello src/hello.txt",
+        "exit": 0,
+        "output": "checks/1.txt"
+      }
+    ],
+    "integration": null,
+    "scope_override": null,
+    "at": "2026-09-28T16:52:02Z",
+    "projected_at": "2026-09-28T16:52:15Z"
+  },
+  "transitions": [
+    {
+      "rev": 1,
+      "field": "claim.state",
+      "from": null,
+      "to": "requested",
+      "at": "2026-09-28T16:44:21Z",
+      "note": "new"
+    },
+    {
+      "rev": 2,
+      "field": "claim.state",
+      "from": "requested",
+      "to": "held",
+      "at": "2026-09-28T16:44:21Z",
+      "note": "new: claim acquired"
+    },
+    {
+      "rev": 3,
+      "field": "execution.observation",
+      "from": "prepared",
+      "to": "unknown",
+      "at": "2026-09-28T16:45:09Z",
+      "note": "arm"
+    },
+    {
+      "rev": 3,
+      "field": "artifact.at_arm",
+      "from": null,
+      "to": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "at": "2026-09-28T16:45:09Z",
+      "note": "arm"
+    },
+    {
+      "rev": 4,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "running",
+      "at": "2026-09-28T16:47:17Z",
+      "note": "observe running"
+    },
+    {
+      "rev": 4,
+      "field": "handle.pid",
+      "from": null,
+      "to": 66008,
+      "at": "2026-09-28T16:47:17Z",
+      "note": "observe running"
+    },
+    {
+      "rev": 5,
+      "field": "execution.observation",
+      "from": "running",
+      "to": "unknown",
+      "at": "2026-09-28T16:48:04Z",
+      "note": "observe unknown: parent process exited (code 0); pgroup_members=0 but card has descendants_may_outlive:unverified; awaiting user attestation"
+    },
+    {
+      "rev": 5,
+      "field": "handle.parent_exited_at",
+      "from": null,
+      "to": "2026-09-28T16:48:04Z",
+      "at": "2026-09-28T16:48:04Z",
+      "note": "observe unknown: parent process exited (code 0); pgroup_members=0 but card has descendants_may_outlive:unverified; awaiting user attestation"
+    },
+    {
+      "rev": 6,
+      "field": "result.status",
+      "from": "none",
+      "to": "valid",
+      "at": "2026-09-28T16:48:13Z",
+      "note": "result"
+    },
+    {
+      "rev": 7,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "stopped",
+      "at": "2026-09-28T16:51:29Z",
+      "note": "observe stopped: owner-attested"
+    },
+    {
+      "rev": 7,
+      "field": "execution.stop_evidence",
+      "from": null,
+      "to": "owner-attested",
+      "at": "2026-09-28T16:51:29Z",
+      "note": "observe stopped: owner-attested"
+    },
+    {
+      "rev": 8,
+      "field": "execution.reconciled_at",
+      "from": null,
+      "to": "2026-09-28T16:51:35Z",
+      "at": "2026-09-28T16:51:35Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 8,
+      "field": "artifact.digest",
+      "from": null,
+      "to": "sha256:b6a41dd7d83fe7025def3842aa239c8f2ecaedd6cdc0215f8e72ccf8109dbd7d",
+      "at": "2026-09-28T16:51:35Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 9,
+      "field": "receipt",
+      "from": null,
+      "to": null,
+      "at": "2026-09-28T16:51:36Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 10,
+      "field": "verdict.acceptance",
+      "from": "pending",
+      "to": "accepted",
+      "at": "2026-09-28T16:52:02Z",
+      "note": "verdict: accepted"
+    },
+    {
+      "rev": 11,
+      "field": "verdict.projected_at",
+      "from": null,
+      "to": "2026-09-28T16:52:15Z",
+      "at": "2026-09-28T16:52:15Z",
+      "note": "projected"
+    },
+    {
+      "rev": 11,
+      "field": "claim.state",
+      "from": "held",
+      "to": "released",
+      "at": "2026-09-28T16:52:15Z",
+      "note": "projected"
+    }
+  ]
+}

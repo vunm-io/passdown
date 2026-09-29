@@ -1,0 +1,13 @@
+diff --git a/docs/plan.md b/docs/plan.md
+index 28dff7c..3dd6c9c 100644
+--- a/docs/plan.md
++++ b/docs/plan.md
+@@ -2,7 +2,7 @@
+ 
+ ## Tasks
+ 
+-- [ ] 1.1 Add the greeting [dispatch: external-ok]
++- [ ] 1.1 Add the greeting [dispatch: fake]
+   - Paths: src/
+   - Done criteria: src/hello.txt says hello
+   - Verification: `grep -q hello src/hello.txt`

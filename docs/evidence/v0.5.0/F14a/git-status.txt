@@ -1,0 +1,2 @@
+ M docs/plan.md
+?? src/hello.txt

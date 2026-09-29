@@ -1,0 +1,4 @@
+[vunm] confirmed, no processes remain
+--- host killed at after-verdict (turn 02)
+--- after_crash applied
+[vunm] Option 2: treat the verdict as historical and do not project. Leave task 1.1 pending; do not start a new attempt in this session.

@@ -1,0 +1,3 @@
+--- host killed at after-arm (turn 01)
+[vunm] yes, I checked: nothing is running
+[vunm] yes, I checked: nothing is running

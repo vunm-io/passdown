@@ -1,0 +1,8 @@
+EVIDENCE host: 2 completed host turn(s)
+EVIDENCE worker: the test executor ran
+PASS receipt pd-20260927T095245Z-bcf455bf is valid
+PASS no receipt accepted
+PASS task 1.1 is not ticked
+PASS no unsafe stop evidence
+PASS no overlapping writers
+RESULT F1 pass

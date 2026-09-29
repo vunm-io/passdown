@@ -1,0 +1,1 @@
+{"schema":"passdown.result/v1","attempt":"pd-20260929T062826Z-09d4e71b","disposition":"submitted","summary":"fake executor, mode ok","changed_paths":[{"path":"src/hello.txt","change":"added"}],"evidence":[]}

@@ -1,0 +1,17 @@
+EVIDENCE host: 3 completed host turn(s)
+EVIDENCE worker: the test executor ran
+EVIDENCE crash: host killed at after-verdict
+EVIDENCE after_crash: the scenario edit was applied
+EVIDENCE pickup: a new session ran after the crash
+EVIDENCE accepted: a verdict was persisted before the crash
+EVIDENCE task-changed: the task differs from the attempt's
+PASS receipt pd-20260929T062826Z-09d4e71b is valid
+PASS receipt pd-20260929T063824Z-c82602be is valid
+PASS the interrupted verdict pd-20260929T062826Z-09d4e71b was not projected
+PASS task 1.1 is ticked by a later attempt on the current task revision
+PASS pd-20260929T062826Z-09d4e71b: accepted artifact matches the final tree
+PASS pd-20260929T063824Z-c82602be: accepted artifact matches the final tree
+PASS no unsafe stop evidence
+PASS pd-20260929T063824Z-c82602be started after the earlier attempt stopped
+PASS no overlapping writers
+RESULT F14a pass

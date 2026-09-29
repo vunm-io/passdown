@@ -1,0 +1,1 @@
+You are the host session for this repository. Execute task 1.1 of docs/plan.md. Follow the passdown workflow exactly: invoke the passdown-dispatch skill first and do what it says, using this repository's AGENTS.md for configuration and routing. If the skill tells you to ask the user something, stop and ask instead of assuming.

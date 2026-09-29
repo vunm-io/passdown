@@ -1,0 +1,225 @@
+{
+  "schema": "passdown.receipt/v1",
+  "id": "pd-20260927T155846Z-c6628a9f",
+  "rev": 9,
+  "kind": "write",
+  "continues": null,
+  "chain_root": "pd-20260927T155846Z-c6628a9f",
+  "created_at": "2026-09-27T15:58:46Z",
+  "task": {
+    "ref": "docs/plan.md#1.1",
+    "planner_repo": "/fixture",
+    "digest": "sha256:654b745e4842870e6bf2e7626a0c59a90eafe2fbef7636068fa0a0e6d75e69d0",
+    "inputs": [],
+    "paths": [
+      "src/"
+    ]
+  },
+  "host": {
+    "agent": "claude-code",
+    "session": null,
+    "passdown_version": "0.5.0-beta.2"
+  },
+  "route": {
+    "tier": "external",
+    "reason_code": "owner-policy",
+    "reason": "Owner routing policy in AGENTS.md mandates fake executor for task 1.1; no fallback"
+  },
+  "executor": {
+    "name": "fake",
+    "card": "fake@1",
+    "version": "0.0.0",
+    "engine": null,
+    "invocation_digest": null
+  },
+  "place": {
+    "repo": "/fixture",
+    "base_ref": "HEAD",
+    "base_commit": "b4178a44bede64142cd21ba02c5f06bddaa92087",
+    "isolation": "current-checkout",
+    "profile": null,
+    "location": "/fixture",
+    "mutation_guard": null
+  },
+  "handle": {
+    "pid": null,
+    "pid_started": null,
+    "pgid": null,
+    "provider_session": null,
+    "runner": null,
+    "containment": null,
+    "scope": null,
+    "parent_exited_at": null
+  },
+  "claim": {
+    "namespace": "/fixture/.git/passdown/claims",
+    "key": "repo",
+    "state": "released",
+    "acquired_at": "2026-09-27T15:58:46Z",
+    "transferred_to": null,
+    "released_at": "2026-09-27T16:40:54Z",
+    "release_basis": "resolved"
+  },
+  "execution": {
+    "observation": "stopped",
+    "observed_at": "2026-09-27T16:39:41Z",
+    "stop_evidence": "owner-attested",
+    "attested_by": "layer-b",
+    "exit": null,
+    "cancel_requested_at": null,
+    "cancel_method": null,
+    "reconciled_at": "2026-09-27T16:39:55Z"
+  },
+  "result": {
+    "ref": "result.json",
+    "disposition": "submitted",
+    "status": "valid",
+    "diagnostics": [],
+    "source": null
+  },
+  "artifact": {
+    "at_arm": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "digest": "sha256:8103542426868e6c3e6f778ffdaa57aa4ac62a6dc8643eda04e1ba6688601664",
+    "expected": null,
+    "changed": 2,
+    "out_of_scope": [],
+    "overlaps_baseline": [],
+    "plan_touched": false,
+    "inspections": [
+      {
+        "at": "2026-09-27T16:39:55Z",
+        "digest": "sha256:8103542426868e6c3e6f778ffdaa57aa4ac62a6dc8643eda04e1ba6688601664"
+      },
+      {
+        "at": "2026-09-27T16:40:02Z",
+        "digest": "sha256:8103542426868e6c3e6f778ffdaa57aa4ac62a6dc8643eda04e1ba6688601664"
+      }
+    ],
+    "target_at_arm": null,
+    "target_after": null
+  },
+  "verdict": {
+    "acceptance": "accepted",
+    "reason_code": null,
+    "reason": null,
+    "task_digest": "sha256:654b745e4842870e6bf2e7626a0c59a90eafe2fbef7636068fa0a0e6d75e69d0",
+    "artifact_digest": "sha256:8103542426868e6c3e6f778ffdaa57aa4ac62a6dc8643eda04e1ba6688601664",
+    "checks": [
+      {
+        "name": "grep -q hello src/hello.txt",
+        "exit": 0,
+        "output": "checks/1.txt"
+      }
+    ],
+    "integration": null,
+    "scope_override": null,
+    "at": "2026-09-27T16:40:32Z",
+    "projected_at": "2026-09-27T16:40:54Z"
+  },
+  "transitions": [
+    {
+      "rev": 1,
+      "field": "claim.state",
+      "from": null,
+      "to": "requested",
+      "at": "2026-09-27T15:58:46Z",
+      "note": "new"
+    },
+    {
+      "rev": 2,
+      "field": "claim.state",
+      "from": "requested",
+      "to": "held",
+      "at": "2026-09-27T15:58:46Z",
+      "note": "new: claim acquired"
+    },
+    {
+      "rev": 3,
+      "field": "execution.observation",
+      "from": "prepared",
+      "to": "unknown",
+      "at": "2026-09-27T15:59:25Z",
+      "note": "arm"
+    },
+    {
+      "rev": 3,
+      "field": "artifact.at_arm",
+      "from": null,
+      "to": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "at": "2026-09-27T15:59:25Z",
+      "note": "arm"
+    },
+    {
+      "rev": 4,
+      "field": "execution.observation",
+      "from": "unknown",
+      "to": "stopped",
+      "at": "2026-09-27T16:39:41Z",
+      "note": "observe stopped: owner-attested"
+    },
+    {
+      "rev": 4,
+      "field": "execution.stop_evidence",
+      "from": null,
+      "to": "owner-attested",
+      "at": "2026-09-27T16:39:41Z",
+      "note": "observe stopped: owner-attested"
+    },
+    {
+      "rev": 5,
+      "field": "result.status",
+      "from": "none",
+      "to": "valid",
+      "at": "2026-09-27T16:39:47Z",
+      "note": "result"
+    },
+    {
+      "rev": 6,
+      "field": "execution.reconciled_at",
+      "from": null,
+      "to": "2026-09-27T16:39:55Z",
+      "at": "2026-09-27T16:39:55Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 6,
+      "field": "artifact.digest",
+      "from": null,
+      "to": "sha256:8103542426868e6c3e6f778ffdaa57aa4ac62a6dc8643eda04e1ba6688601664",
+      "at": "2026-09-27T16:39:55Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 7,
+      "field": "receipt",
+      "from": null,
+      "to": null,
+      "at": "2026-09-27T16:40:02Z",
+      "note": "inspect"
+    },
+    {
+      "rev": 8,
+      "field": "verdict.acceptance",
+      "from": "pending",
+      "to": "accepted",
+      "at": "2026-09-27T16:40:32Z",
+      "note": "verdict: accepted"
+    },
+    {
+      "rev": 9,
+      "field": "verdict.projected_at",
+      "from": null,
+      "to": "2026-09-27T16:40:54Z",
+      "at": "2026-09-27T16:40:54Z",
+      "note": "projected"
+    },
+    {
+      "rev": 9,
+      "field": "claim.state",
+      "from": "held",
+      "to": "released",
+      "at": "2026-09-27T16:40:54Z",
+      "note": "projected"
+    }
+  ]
+}
