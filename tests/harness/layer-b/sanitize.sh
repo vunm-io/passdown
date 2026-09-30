@@ -12,7 +12,10 @@
 #   - hook events lose their output (the operator's hooks);
 #   - rate-limit events lose the account details;
 #   - thinking_tokens events, progress counters with no content, are dropped,
-#     and so are the opaque signatures of thinking blocks.
+#     and so are the opaque signatures of thinking blocks;
+#   - MCP server entries and MCP tool names are redacted wherever they still
+#     appear, including inside a raw transcript a host read into a tool
+#     result, which the per-event reduction never looks into.
 #
 # oracle.sh judges the sanitized copy the same way; run it after this.
 set -euo pipefail
@@ -55,6 +58,13 @@ for out in "$@"; do
         {type, session_id, x_note: "account details omitted"}
       else walk(if type == "object" and has("signature") then del(.signature) else . end) end' "$t" >"$t.tmp"
     mv "$t.tmp" "$t"
+    # A tool result can carry a whole raw transcript the host read (a `cat` of
+    # another run). Its init event is a string there, so the reduction above
+    # misses it; docs/evidence/e-claude-1 published a connector name this way.
+    # Redact server entries and tool names in any form, escaped or not.
+    perl -pi -e '
+      s/(\\*"name\\*"\s*:\s*\\*")[^"\\]+(\\*"\s*,\s*\\*"status\\*")/$1(redacted)$2/g;
+      s/\bmcp__[A-Za-z0-9_.-]+?__/mcp__(redacted)__/g' "$t"
   done
   # Literal replacement, longest first (the fixture before the home dir).
   while IFS= read -r -d '' f; do
