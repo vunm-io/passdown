@@ -12,7 +12,7 @@ The E-KIRO-1 method (§19 of `docs/design/PDN-0004-v05-acceptance-recovery.md`,
 | Operator | Claude (passdown maintainer session, a separate Claude Code desktop session), attesting stops from the recorded process listings |
 | Fixture | [`../fixture.sh`](../fixture.sh): the same four-task plan as E-KIRO-1 |
 | Runner | [`../executor-run.sh`](../executor-run.sh) with `EK_EXECUTOR=claude` |
-| Records | [`runs/`](runs/). Local paths are replaced by placeholders, and the `init` and hook events are reduced so that the operator's tool, MCP server and plugin names are not published |
+| Records | [`runs/`](runs/). Local paths are replaced by placeholders, and the `init` and hook events are reduced so that the operator's tool, MCP server and plugin names are not published. One MCP server name that survived inside a transcript quoted in a tool result (`runs/C.transport.jsonl`) is shown as `(redacted)`; nothing else in the record changed |
 
 ## Runs
 
